@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { ArrowUpCircle, X } from "lucide-react";
+import { useEffect, useState, useRef } from "react";
+import { ArrowUpCircle, X, Loader2 } from "lucide-react";
 
 interface UpdateStatus {
   upToDate: boolean;
@@ -9,9 +9,13 @@ interface UpdateStatus {
   remoteCommit: string | null;
 }
 
+type Phase = "idle" | "updating" | "restarting";
+
 export function UpdateBanner() {
   const [status, setStatus] = useState<UpdateStatus | null>(null);
   const [dismissed, setDismissed] = useState(false);
+  const [phase, setPhase] = useState<Phase>("idle");
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   useEffect(() => {
     fetch("/api/update-check")
@@ -19,6 +23,35 @@ export function UpdateBanner() {
       .then((data: UpdateStatus) => setStatus(data))
       .catch(() => {});
   }, []);
+
+  // Poll until server is back up, then reload
+  function startPolling() {
+    pollRef.current = setInterval(async () => {
+      try {
+        const r = await fetch("/api/update-check", { cache: "no-store" });
+        if (r.ok) {
+          clearInterval(pollRef.current!);
+          window.location.reload();
+        }
+      } catch {
+        // server still restarting — keep polling
+      }
+    }, 2000);
+  }
+
+  async function handleUpdate() {
+    setPhase("updating");
+    try {
+      await fetch("/api/run-update", { method: "POST" });
+    } catch {
+      // expected — server may go down before responding
+    }
+    setPhase("restarting");
+    // Give update.sh a moment to start before polling
+    setTimeout(startPolling, 5000);
+  }
+
+  useEffect(() => () => { if (pollRef.current) clearInterval(pollRef.current); }, []);
 
   if (!status || status.upToDate || dismissed) return null;
 
@@ -30,15 +63,40 @@ export function UpdateBanner() {
         <p className="text-xs text-violet-400/70 mt-0.5">
           {status.localCommit} → {status.remoteCommit}
         </p>
-        <p className="text-xs text-violet-300/60 mt-1 font-mono">run ./update.sh</p>
+
+        {phase === "idle" && (
+          <button
+            onClick={handleUpdate}
+            className="mt-2 px-3 py-1 text-xs font-semibold rounded-lg bg-violet-600 hover:bg-violet-500 text-white transition-colors"
+          >
+            Update &amp; Restart
+          </button>
+        )}
+
+        {phase === "updating" && (
+          <p className="mt-2 flex items-center gap-1.5 text-xs text-violet-300/80">
+            <Loader2 size={11} className="animate-spin" />
+            Pulling latest changes…
+          </p>
+        )}
+
+        {phase === "restarting" && (
+          <p className="mt-2 flex items-center gap-1.5 text-xs text-violet-300/80">
+            <Loader2 size={11} className="animate-spin" />
+            Restarting… page will reload
+          </p>
+        )}
       </div>
-      <button
-        onClick={() => setDismissed(true)}
-        className="text-violet-400/50 hover:text-violet-300 transition-colors shrink-0"
-        aria-label="Dismiss"
-      >
-        <X size={14} />
-      </button>
+
+      {phase === "idle" && (
+        <button
+          onClick={() => setDismissed(true)}
+          className="text-violet-400/50 hover:text-violet-300 transition-colors shrink-0"
+          aria-label="Dismiss"
+        >
+          <X size={14} />
+        </button>
+      )}
     </div>
   );
 }
