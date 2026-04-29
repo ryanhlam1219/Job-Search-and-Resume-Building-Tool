@@ -33,6 +33,9 @@ yarn-error.log*
 # app logs
 .logs/
 
+# runtime pid files
+.pids/
+
 # env files — ignore real env files but track the example template
 .env*
 !.env.example
