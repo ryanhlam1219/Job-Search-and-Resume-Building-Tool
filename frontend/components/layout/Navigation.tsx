@@ -4,7 +4,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useTheme } from "@/frontend/components/ui/ThemeProvider";
-import { Briefcase, LayoutDashboard, FileText, Kanban, Sparkles, List, Sun, Moon } from "lucide-react";
+import Image from "next/image";
+import { LayoutDashboard, FileText, Kanban, Sparkles, List, Sun, Moon } from "lucide-react";
 import { cn } from "@/backend/lib/utils";
 
 const NAV_ITEMS = [
@@ -26,14 +27,8 @@ export function Navigation() {
     <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-gray-950/90 backdrop-blur-xl">
       <div className="max-w-7xl mx-auto px-4 h-16 flex items-center justify-between">
         {/* Logo */}
-        <Link href="/" className="flex items-center gap-2.5 group">
-          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-lg shadow-violet-500/25">
-            <Briefcase size={16} className="text-white" />
-          </div>
-          <span className="font-bold text-white text-lg tracking-tight">
-            Job<span className="text-violet-400">Assist</span>
-            <span className="text-violet-400 ml-0.5">AI</span>
-          </span>
+        <Link href="/" className="flex items-center group">
+          <Image src="/logo.png" alt="JobAssist AI" width={120} height={40} className="h-10 w-auto" priority />
         </Link>
 
         {/* Nav links */}

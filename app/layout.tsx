@@ -13,6 +13,7 @@ const inter = Inter({ subsets: ["latin"] });
 export const metadata: Metadata = {
   title: "JobAssist AI — Smart Job Discovery",
   description: "AI-powered job discovery, smart matching, and one-click resume tailoring",
+  icons: { icon: "/favicon.png" },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
