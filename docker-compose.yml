@@ -1,0 +1,51 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: password
+      POSTGRES_DB: job_assistant
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  scraper:
+    build:
+      context: ./backend/scraper
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      DATABASE_URL: postgresql://postgres:password@db:5432/job_assistant
+      SCRAPER_SERVICE_URL: http://scraper:8000
+      NEXT_PUBLIC_APP_URL: http://localhost:3000
+      OPENAI_API_KEY: ${OPENAI_API_KEY}
+      DEMO_USER_ID: demo-user-1
+    depends_on:
+      db:
+        condition: service_healthy
+      scraper:
+        condition: service_started
+
+volumes:
+  pgdata:

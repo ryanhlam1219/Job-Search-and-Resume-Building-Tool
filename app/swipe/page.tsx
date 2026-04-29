@@ -1,0 +1,260 @@
+"use client";
+
+import { useEffect, useState, useCallback } from "react";
+import { SwipeInterface } from "@/frontend/components/jobs/SwipeInterface";
+import type { Job, SwipeAction } from "@/backend/lib/types";
+import { toast } from "@/frontend/components/ui/Toaster";
+import { Loader2, Sparkles, Search, MapPin, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
+
+const SUGGESTED_ROLES = [
+  "Software Engineer",
+  "Admin Assistant",
+  "Care Coordinator",
+  "Project Manager",
+  "Data Analyst",
+  "Nurse",
+  "Marketing Manager",
+  "Sales Representative",
+];
+
+const SUGGESTED_LOCATIONS = [
+  "Remote",
+  "United States",
+  "New York, NY",
+  "Los Angeles, CA",
+  "Chicago, IL",
+  "Austin, TX",
+  "Seattle, WA",
+];
+
+export default function SwipePage() {
+  const [jobs, setJobs] = useState<Job[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [scraping, setScraping] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState("Software Engineer");
+  const [location, setLocation] = useState("Remote");
+  const [purging, setPurging] = useState(false);
+
+  const fetchJobs = useCallback(async () => {
+    setLoading(true);
+    try {
+      const res = await fetch("/api/jobs/swipeable?limit=20");
+      if (!res.ok) throw new Error("Failed to load jobs");
+      const data = await res.json();
+      setJobs(data);
+    } catch {
+      toast("Failed to load jobs", "error");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchJobs();
+  }, [fetchJobs]);
+
+  const handleSearch = useCallback(async () => {
+    if (!searchTerm.trim()) return;
+    setScraping(true);
+      toast("Searching for jobs… this may take a minute", "info");
+    try {
+      const res = await fetch("/api/jobs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          search_term: searchTerm.trim(),
+          location: location.trim() || "United States",
+          results_wanted: 30,
+        }),
+      });
+      if (!res.ok) throw new Error("Search failed");
+      const data = await res.json();
+      toast(`Found ${data.total ?? 0} new jobs!`, "success");
+      setSearchOpen(false);
+      await fetchJobs();
+    } catch {
+      toast("Job search failed — is the scraper running?", "error");
+    } finally {
+      setScraping(false);
+    }
+  }, [searchTerm, location, fetchJobs]);
+
+  const handleSwipe = useCallback(async (jobId: string, action: SwipeAction) => {
+    try {
+      const res = await fetch("/api/swipes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobId, action }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: res.statusText }));
+        throw new Error(err.error || "Server error");
+      }
+      if (action === "INTERESTED") toast("Saved to applications!", "success");
+      if (action === "HIGH_PRIORITY") toast("Saved to applications! ⭐ High priority", "success");
+    } catch (e) {
+      toast(`Failed to save: ${e instanceof Error ? e.message : "unknown error"}`, "error");
+    }
+  }, []);
+
+  const handlePurgeDiscover = useCallback(async () => {
+    if (!confirm("Purge all Discover jobs? This removes jobs, swipes, and applications linked to those jobs.")) {
+      return;
+    }
+
+    setPurging(true);
+    try {
+      const res = await fetch("/api/jobs/swipeable", { method: "DELETE" });
+      if (!res.ok) throw new Error("Purge failed");
+      const data = await res.json();
+      setJobs([]);
+      toast(`Purged ${data.deletedJobs ?? 0} discover jobs`, "success");
+    } catch {
+      toast("Failed to purge discover jobs", "error");
+    } finally {
+      setPurging(false);
+    }
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[calc(100vh-64px)] gap-3">
+        <Loader2 className="text-violet-400 animate-spin" size={32} />
+        <p className="text-gray-400">Loading jobs…</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="w-full max-w-6xl mx-auto px-6 py-8">
+      {/* Header */}
+      <div className="text-center mb-6">
+        <div className="inline-flex items-center gap-2 bg-violet-500/10 border border-violet-500/20 rounded-full px-4 py-1.5 text-violet-400 text-sm mb-3">
+          <Sparkles size={14} />
+          Job Discovery
+        </div>
+        <h1 className="text-3xl font-black text-white mb-2">Find Your Next Role</h1>
+        <p className="text-gray-400 text-sm">
+          Swipe right to save · Heart for high priority · Left to skip
+        </p>
+        <div className="mt-4">
+          <button
+            type="button"
+            onClick={handlePurgeDiscover}
+            disabled={purging}
+            className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-red-500/30 bg-red-500/10 text-red-300 hover:bg-red-500/20 transition-colors text-xs font-medium disabled:opacity-50"
+          >
+            {purging ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+            {purging ? "Purging…" : "Purge Discover Jobs"}
+          </button>
+        </div>
+      </div>
+
+      {/* Search panel */}
+      <div className="mb-6 bg-gray-900/60 border border-white/10 rounded-2xl overflow-hidden">
+        <button
+          onClick={() => setSearchOpen((o) => !o)}
+          className="w-full flex items-center justify-between px-4 py-3 text-sm text-gray-300 hover:text-white transition-colors"
+        >
+          <span className="flex items-center gap-2">
+            <Search size={14} className="text-violet-400" />
+            <span>
+              <span className="font-semibold text-white">{searchTerm}</span>
+              <span className="text-gray-500 mx-1.5">·</span>
+              <span className="text-gray-400">{location}</span>
+            </span>
+          </span>
+          {searchOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </button>
+
+        {searchOpen && (
+          <div className="px-4 pb-4 border-t border-white/10 pt-4 space-y-4">
+            {/* Role input */}
+            <div>
+              <label className="block text-xs text-gray-400 mb-1.5 font-medium">Job title / role</label>
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                placeholder="e.g. Care Coordinator"
+                className="w-full bg-gray-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-violet-500/50"
+              />
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {SUGGESTED_ROLES.map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => setSearchTerm(r)}
+                    className="text-xs px-2.5 py-1 rounded-full bg-gray-800 border border-white/10 text-gray-400 hover:border-violet-500/40 hover:text-violet-300 transition-colors"
+                  >
+                    {r}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* Location input */}
+            <div>
+              <label className="block text-xs text-gray-400 mb-1.5 font-medium flex items-center gap-1">
+                <MapPin size={11} /> Location
+              </label>
+              <input
+                type="text"
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                placeholder="e.g. Remote or New York, NY"
+                className="w-full bg-gray-800 border border-white/10 rounded-xl px-3 py-2 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-violet-500/50"
+              />
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {SUGGESTED_LOCATIONS.map((l) => (
+                  <button
+                    key={l}
+                    onClick={() => setLocation(l)}
+                    className="text-xs px-2.5 py-1 rounded-full bg-gray-800 border border-white/10 text-gray-400 hover:border-violet-500/40 hover:text-violet-300 transition-colors"
+                  >
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <button
+              onClick={handleSearch}
+              disabled={scraping || !searchTerm.trim()}
+              className="w-full flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-500 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold text-sm rounded-xl py-2.5 transition-colors"
+            >
+              {scraping ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" />
+                  Searching…
+                </>
+              ) : (
+                <>
+                  <Search size={14} />
+                  Search Jobs
+                </>
+              )}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Legend */}
+      <div className="flex justify-center gap-6 mb-6 text-xs text-gray-500">
+        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-red-500/40 border border-red-500/60"></span> Skip</span>
+        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-pink-500/40 border border-pink-500/60"></span> High Priority</span>
+        <span className="flex items-center gap-1.5"><span className="w-3 h-3 rounded-full bg-green-500/40 border border-green-500/60"></span> Interested</span>
+      </div>
+
+      <div style={{ minHeight: "660px" }}>
+        <SwipeInterface
+          jobs={jobs}
+          onSwipe={handleSwipe}
+          onEmpty={fetchJobs}
+        />
+      </div>
+    </div>
+  );
+}

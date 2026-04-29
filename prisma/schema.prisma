@@ -1,0 +1,87 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  resumes      Resume[]
+  swipes       Swipe[]
+  applications Application[]
+}
+
+model Job {
+  id          String   @id @default(cuid())
+  title       String
+  company     String
+  description String   @db.Text
+  location    String?
+  salary      String?
+  source      String
+  url         String   @unique
+  createdAt   DateTime @default(now())
+
+  swipes       Swipe[]
+  applications Application[]
+}
+
+model Resume {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  name      String?
+  title     String?
+  summary   String?
+  rawText   String?  @db.Text
+  data      Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Swipe {
+  id        String      @id @default(cuid())
+  userId    String
+  user      User        @relation(fields: [userId], references: [id])
+  jobId     String
+  job       Job         @relation(fields: [jobId], references: [id])
+  action    SwipeAction
+  createdAt DateTime    @default(now())
+
+  @@unique([userId, jobId])
+}
+
+model Application {
+  id        String            @id @default(cuid())
+  userId    String
+  user      User              @relation(fields: [userId], references: [id])
+  jobId     String
+  job       Job               @relation(fields: [jobId], references: [id])
+  status    ApplicationStatus @default(SAVED)
+  notes     String?
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  @@unique([userId, jobId])
+}
+
+enum SwipeAction {
+  INTERESTED
+  NOT_INTERESTED
+  HIGH_PRIORITY
+}
+
+enum ApplicationStatus {
+  SAVED
+  APPLIED
+  INTERVIEW
+  OFFER
+  REJECTED
+}
