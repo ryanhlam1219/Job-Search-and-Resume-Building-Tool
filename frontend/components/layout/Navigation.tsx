@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useTheme } from "next-themes";
+import { useState, useEffect } from "react";
+import { useTheme } from "@/frontend/components/ui/ThemeProvider";
 import { Briefcase, LayoutDashboard, FileText, Kanban, Sparkles, List, Sun, Moon } from "lucide-react";
 import { cn } from "@/backend/lib/utils";
 
@@ -17,6 +18,9 @@ const NAV_ITEMS = [
 export function Navigation() {
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => setMounted(true), []);
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/10 bg-gray-950/90 backdrop-blur-xl">
@@ -56,11 +60,11 @@ export function Navigation() {
           {/* Theme toggle */}
           <button
             type="button"
-            onClick={() => setTheme(theme === "light" ? "dark" : "light")}
-            title={theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
+            onClick={() => setTheme((theme ?? "dark") === "light" ? "dark" : "light")}
+            title={mounted && theme === "light" ? "Switch to dark mode" : "Switch to light mode"}
             className="ml-1 p-2 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all duration-150"
           >
-            {theme === "light" ? <Moon size={15} /> : <Sun size={15} />}
+            {mounted && theme === "light" ? <Moon size={15} /> : <Sun size={15} />}
           </button>
         </div>
       </div>
