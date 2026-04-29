@@ -20,7 +20,12 @@ export function UpdateBanner() {
   useEffect(() => {
     fetch("/api/update-check")
       .then((r) => r.json())
-      .then((data: UpdateStatus) => setStatus(data))
+      .then((data: UpdateStatus) => {
+        setStatus(data);
+        // Restore dismissed state — only valid for the same remote commit
+        const key = `update-dismissed-${data.remoteCommit}`;
+        if (sessionStorage.getItem(key) === "1") setDismissed(true);
+      })
       .catch(() => {});
   }, []);
 
@@ -90,7 +95,10 @@ export function UpdateBanner() {
 
       {phase === "idle" && (
         <button
-          onClick={() => setDismissed(true)}
+          onClick={() => {
+            sessionStorage.setItem(`update-dismissed-${status.remoteCommit}`, "1");
+            setDismissed(true);
+          }}
           className="text-violet-400/50 hover:text-violet-300 transition-colors shrink-0"
           aria-label="Dismiss"
         >
