@@ -1,0 +1,54 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Background rounded rect -->
+  <rect width="1024" height="1024" rx="200" ry="200" fill="url(#bgGrad)"/>
+
+  <!-- Gradient definitions -->
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#7c3aed"/>
+      <stop offset="100%" style="stop-color:#4f46e5"/>
+    </linearGradient>
+    <linearGradient id="paperGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff"/>
+      <stop offset="100%" style="stop-color:#f1f5f9"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Resume paper -->
+  <rect x="272" y="200" width="380" height="500" rx="18" fill="url(#paperGrad)" filter="drop-shadow(0 8px 32px rgba(0,0,0,0.35))"/>
+
+  <!-- Header bar on resume -->
+  <rect x="272" y="200" width="380" height="90" rx="18" fill="#7c3aed" opacity="0.15"/>
+
+  <!-- Name lines -->
+  <rect x="310" y="225" width="200" height="18" rx="6" fill="#4c1d95" opacity="0.7"/>
+  <rect x="310" y="252" width="140" height="11" rx="4" fill="#7c3aed" opacity="0.45"/>
+
+  <!-- Section lines -->
+  <rect x="310" y="330" width="90" height="10" rx="3" fill="#7c3aed" opacity="0.55"/>
+  <rect x="310" y="355" width="300" height="8" rx="3" fill="#94a3b8" opacity="0.6"/>
+  <rect x="310" y="372" width="270" height="8" rx="3" fill="#94a3b8" opacity="0.5"/>
+  <rect x="310" y="389" width="285" height="8" rx="3" fill="#94a3b8" opacity="0.5"/>
+
+  <rect x="310" y="420" width="90" height="10" rx="3" fill="#7c3aed" opacity="0.55"/>
+  <rect x="310" y="445" width="300" height="8" rx="3" fill="#94a3b8" opacity="0.6"/>
+  <rect x="310" y="462" width="255" height="8" rx="3" fill="#94a3b8" opacity="0.5"/>
+  <rect x="310" y="479" width="280" height="8" rx="3" fill="#94a3b8" opacity="0.5"/>
+
+  <rect x="310" y="510" width="90" height="10" rx="3" fill="#7c3aed" opacity="0.55"/>
+  <rect x="310" y="535" width="290" height="8" rx="3" fill="#94a3b8" opacity="0.5"/>
+  <rect x="310" y="552" width="260" height="8" rx="3" fill="#94a3b8" opacity="0.4"/>
+
+  <!-- AI sparkle badge (bottom right of paper) -->
+  <circle cx="610" cy="660" r="62" fill="#7c3aed"/>
+  <circle cx="610" cy="660" r="56" fill="#6d28d9"/>
+
+  <!-- Sparkle star inside badge -->
+  <g transform="translate(610,660)">
+    <!-- 4-point star -->
+    <path d="M0,-30 L7,-7 L30,0 L7,7 L0,30 L-7,7 L-30,0 L-7,-7 Z" fill="white" opacity="0.95"/>
+    <!-- small dots -->
+    <circle cx="22" cy="-22" r="5" fill="white" opacity="0.7"/>
+    <circle cx="-20" cy="20" r="3.5" fill="white" opacity="0.5"/>
+  </g>
+</svg>

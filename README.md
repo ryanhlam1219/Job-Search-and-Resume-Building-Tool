@@ -2,22 +2,42 @@
 
 An AI-powered job discovery and application assistant with Tinder-style swiping, resume parsing, AI tailoring, and strict 1-page enforcement.
 
+## 🚀 First-Time Setup (No Experience Required)
+
+If this is your first time setting up the app on a new Mac:
+
+1. **Open Terminal** — press `Cmd + Space`, type `Terminal`, press Enter
+2. **Run this one command:**
+   ```
+   cd ~/Desktop/job-assistant && bash setup.sh
+   ```
+3. Follow the on-screen instructions (it will walk you through everything!)
+4. When it's done, double-click **JobAssist AI** on your Desktop
+
+> ⏱ The setup takes 10–20 minutes mostly because it downloads the AI model (~2 GB). Just let it run!
+
+## 🖥 Launching the App (After Setup)
+
+Double-click **JobAssist AI** on your Desktop (or in your Applications folder). A terminal window will open briefly while everything starts, then your browser will open automatically.
+
+---
+
 ## Tech Stack
 
 - **Frontend/Backend**: Next.js 16 (App Router) + TypeScript
 - **UI**: TailwindCSS v4 + Framer Motion + Lucide Icons
 - **Database**: PostgreSQL via Prisma v7
-- **AI**: OpenAI GPT-4o-mini (structured JSON only)
+- **AI**: Ollama (local, llama3.2 — no API key needed)
 - **Scraping**: Python 3.11 + JobSpy microservice (Flask)
 - **PDF**: Puppeteer (pixel-perfect match to preview)
 
-## Quick Start (Local)
+## Quick Start (Developer)
 
 ### Prerequisites
 - Node.js 20+
 - PostgreSQL 14+ (or Docker)
 - Python 3.11+
-- OpenAI API key
+- Ollama with llama3.2
 
 ### 1. Setup environment
 ```bash
