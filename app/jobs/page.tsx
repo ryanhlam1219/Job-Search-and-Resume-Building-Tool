@@ -26,13 +26,12 @@ interface Job {
   createdAt: string;
 }
 
-const SOURCES = ["", "indeed", "linkedin", "glassdoor"];
+const SOURCES = ["", "indeed", "linkedin"];
 const PAGE_SIZE = 20;
 
 const SOURCE_COLORS: Record<string, string> = {
   linkedin: "bg-blue-500/10 border-blue-500/20 text-blue-400",
   indeed: "bg-orange-500/10 border-orange-500/20 text-orange-400",
-  glassdoor: "bg-green-500/10 border-green-500/20 text-green-400",
 };
 
 function timeAgo(iso: string): string {

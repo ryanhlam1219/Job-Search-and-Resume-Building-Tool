@@ -116,7 +116,7 @@ export default function HomePage() {
             {activeScrapes > 1 ? `Scraping (${activeScrapes})…` : activeScrapes === 1 ? "Scraping…" : "Scrape Jobs"}
           </button>
         </div>
-        <p className="text-gray-600 text-xs mt-3">Scrapes LinkedIn, Indeed, and Glassdoor via the JobSpy microservice (must be running on port 8000)</p>
+        <p className="text-gray-600 text-xs mt-3">Scrapes LinkedIn and Indeed via the JobSpy microservice (must be running on port 8000)</p>
       </div>
 
       <div className="grid grid-cols-3 gap-4">
