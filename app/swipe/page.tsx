@@ -51,10 +51,14 @@ export default function SwipePage() {
       const res = await fetch(`/api/jobs/swipeable?${params}`);
       if (!res.ok) throw new Error("Failed to load jobs");
       const data = await res.json();
-      logger.info("SwipePage", "Stack loaded", { count: data.length, remote, hasSalary });
+      logger.info("SwipePage", "Stack loaded from API", { count: data.length, remote, hasSalary });
       setJobs(data);
       setStack(data);
-      setHistory([]); // clear undo history on fresh fetch
+      setHistory([]);
+      try {
+        sessionStorage.setItem("discover_stack", JSON.stringify(data));
+        sessionStorage.removeItem("discover_history");
+      } catch { /* ignore */ }
     } catch (err) {
       logger.error("SwipePage", "Failed to load swipeable jobs", err);
       toast("Failed to load jobs", "error");
@@ -63,10 +67,25 @@ export default function SwipePage() {
     }
   }, []);
 
+  // On mount: restore saved stack from session, or fetch fresh
   useEffect(() => {
+    try {
+      const savedStack = sessionStorage.getItem("discover_stack");
+      if (savedStack) {
+        const parsed: Job[] = JSON.parse(savedStack);
+        if (parsed.length > 0) {
+          const savedHistory = sessionStorage.getItem("discover_history");
+          setStack(parsed);
+          setHistory(savedHistory ? (JSON.parse(savedHistory) as Job[]) : []);
+          setLoading(false);
+          logger.info("SwipePage", "Restored stack from session", { count: parsed.length });
+          return;
+        }
+      }
+    } catch { /* ignore */ }
     fetchJobs(filterRemote, filterHasSalary);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [fetchJobs]);
+  }, []);
 
   const handleSearch = useCallback(async () => {
     if (!searchTerm.trim()) return;
@@ -94,12 +113,20 @@ export default function SwipePage() {
     }
   }, [searchTerm, location, fetchJobs]);
 
+  // Wraps onStackChange to also sync to sessionStorage
+  const handleStackChange = useCallback((newStack: Job[]) => {
+    setStack(newStack);
+    try { sessionStorage.setItem("discover_stack", JSON.stringify(newStack)); } catch { /* ignore */ }
+  }, []);
+
   const handleSwipe = useCallback(async (jobId: string, action: SwipeAction) => {
     // Find the job being swiped and push to history BEFORE the API call
     const swipedJob = stack.find((j) => j.id === jobId);
     if (swipedJob) {
-      setHistory((prev) => [...prev, swipedJob]);
-      logger.info("SwipePage", "Card swiped", { jobId, action, historySize: history.length + 1 });
+      const newHistory = [...history, swipedJob];
+      setHistory(newHistory);
+      try { sessionStorage.setItem("discover_history", JSON.stringify(newHistory)); } catch { /* ignore */ }
+      logger.info("SwipePage", "Card swiped", { jobId, action, historySize: newHistory.length });
     }
     try {
       const res = await fetch("/api/swipes", {
@@ -129,9 +156,15 @@ export default function SwipePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ jobId: lastJob.id }),
       });
-      setHistory((prev) => prev.slice(0, -1));
-      setStack((prev) => [...prev, lastJob]);
-      logger.info("SwipePage", "Undo successful", { jobId: lastJob.id, stackSize: stack.length + 1 });
+      const newHistory = history.slice(0, -1);
+      const newStack = [...stack, lastJob];
+      setHistory(newHistory);
+      setStack(newStack);
+      try {
+        sessionStorage.setItem("discover_stack", JSON.stringify(newStack));
+        sessionStorage.setItem("discover_history", JSON.stringify(newHistory));
+      } catch { /* ignore */ }
+      logger.info("SwipePage", "Undo successful", { jobId: lastJob.id, stackSize: newStack.length });
     } catch (e) {
       logger.error("SwipePage", "Undo failed", e);
       toast("Failed to undo", "error");
@@ -150,6 +183,10 @@ export default function SwipePage() {
       const data = await res.json();
       setJobs([]);
       setStack([]);
+      try {
+        sessionStorage.removeItem("discover_stack");
+        sessionStorage.removeItem("discover_history");
+      } catch { /* ignore */ }
       toast(`Purged ${data.deletedJobs ?? 0} discover jobs`, "success");
     } catch {
       toast("Failed to purge discover jobs", "error");
@@ -324,7 +361,7 @@ export default function SwipePage() {
         <SwipeInterface
           stack={stack}
           onSwipe={handleSwipe}
-          onStackChange={setStack}
+          onStackChange={handleStackChange}
           onEmpty={fetchJobs}
           onUndo={handleUndo}
           canUndo={history.length > 0}
