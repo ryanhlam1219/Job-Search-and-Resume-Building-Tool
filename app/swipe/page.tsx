@@ -5,6 +5,7 @@ import { SwipeInterface } from "@/frontend/components/jobs/SwipeInterface";
 import type { Job, SwipeAction } from "@/backend/lib/types";
 import { toast } from "@/frontend/components/ui/Toaster";
 import { Loader2, Sparkles, Search, MapPin, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
+import { cn } from "@/backend/lib/utils";
 
 const SUGGESTED_ROLES = [
   "Software Engineer",
@@ -29,20 +30,27 @@ const SUGGESTED_LOCATIONS = [
 
 export default function SwipePage() {
   const [jobs, setJobs] = useState<Job[]>([]);
+  const [stack, setStack] = useState<Job[]>([]);
   const [loading, setLoading] = useState(true);
   const [scraping, setScraping] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("Software Engineer");
   const [location, setLocation] = useState("Remote");
+  const [filterRemote, setFilterRemote] = useState(false);
+  const [filterHasSalary, setFilterHasSalary] = useState(false);
   const [purging, setPurging] = useState(false);
 
-  const fetchJobs = useCallback(async () => {
+  const fetchJobs = useCallback(async (remote = filterRemote, hasSalary = filterHasSalary) => {
     setLoading(true);
     try {
-      const res = await fetch("/api/jobs/swipeable?limit=20");
+      const params = new URLSearchParams({ limit: "20" });
+      if (remote) params.set("remote", "true");
+      if (hasSalary) params.set("hasSalary", "true");
+      const res = await fetch(`/api/jobs/swipeable?${params}`);
       if (!res.ok) throw new Error("Failed to load jobs");
       const data = await res.json();
       setJobs(data);
+      setStack(data);
     } catch {
       toast("Failed to load jobs", "error");
     } finally {
@@ -51,7 +59,8 @@ export default function SwipePage() {
   }, []);
 
   useEffect(() => {
-    fetchJobs();
+    fetchJobs(filterRemote, filterHasSalary);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchJobs]);
 
   const handleSearch = useCallback(async () => {
@@ -109,6 +118,7 @@ export default function SwipePage() {
       if (!res.ok) throw new Error("Purge failed");
       const data = await res.json();
       setJobs([]);
+      setStack([]);
       toast(`Purged ${data.deletedJobs ?? 0} discover jobs`, "success");
     } catch {
       toast("Failed to purge discover jobs", "error");
@@ -117,7 +127,7 @@ export default function SwipePage() {
     }
   }, []);
 
-  if (loading) {
+  if (loading && stack.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[calc(100vh-64px)] gap-3">
         <Loader2 className="text-violet-400 animate-spin" size={32} />
@@ -220,6 +230,37 @@ export default function SwipePage() {
               </div>
             </div>
 
+            {/* Filters */}
+            <div>
+              <label className="block text-xs text-gray-400 mb-1.5 font-medium">Quick filters (apply to current stack)</label>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setFilterRemote((v) => { fetchJobs(!v, filterHasSalary); return !v; }); }}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors",
+                    filterRemote
+                      ? "bg-blue-500/20 border-blue-500/40 text-blue-300"
+                      : "bg-gray-800 border-white/10 text-gray-400 hover:text-white hover:bg-white/10"
+                  )}
+                >
+                  🌐 Remote only
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setFilterHasSalary((v) => { fetchJobs(filterRemote, !v); return !v; }); }}
+                  className={cn(
+                    "px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors",
+                    filterHasSalary
+                      ? "bg-green-500/20 border-green-500/40 text-green-300"
+                      : "bg-gray-800 border-white/10 text-gray-400 hover:text-white hover:bg-white/10"
+                  )}
+                >
+                  💰 Has salary listed
+                </button>
+              </div>
+            </div>
+
             <button
               onClick={handleSearch}
               disabled={scraping || !searchTerm.trim()}
@@ -250,8 +291,9 @@ export default function SwipePage() {
 
       <div style={{ minHeight: "660px" }}>
         <SwipeInterface
-          jobs={jobs}
+          stack={stack}
           onSwipe={handleSwipe}
+          onStackChange={setStack}
           onEmpty={fetchJobs}
         />
       </div>

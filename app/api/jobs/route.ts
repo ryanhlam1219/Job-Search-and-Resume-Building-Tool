@@ -20,6 +20,8 @@ export async function GET(req: NextRequest) {
   const search = searchParams.get("search")?.trim() || "";
   const location = searchParams.get("location")?.trim() || "";
   const source = searchParams.get("source")?.trim() || "";
+  const remote = searchParams.get("remote") === "true";
+  const hasSalary = searchParams.get("hasSalary") === "true";
 
   const where = {
     ...(search && {
@@ -30,6 +32,8 @@ export async function GET(req: NextRequest) {
     }),
     ...(location && { location: { contains: location, mode: "insensitive" as const } }),
     ...(source && { source: { equals: source, mode: "insensitive" as const } }),
+    ...(remote && { location: { contains: "remote", mode: "insensitive" as const } }),
+    ...(hasSalary && { salary: { not: null } }),
   };
 
   try {

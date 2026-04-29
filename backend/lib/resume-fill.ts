@@ -7,14 +7,19 @@ import type { ResumeData } from "@/backend/lib/types";
 // Usable content width (816 – 96px h-padding) = 720px ÷ ~6.5px/char ≈ 110 chars,
 // conservative at 85 to account for word-wrap and proportional widths.
 
-const CHARS_PER_LINE = 85;
+// Each rendered line ≈ 85 chars. Bullets are now targeted at 18-28 words
+// (~110-160 chars), so most should wrap to 2 lines each.
+const CHARS_PER_LINE = 80;
 
-// Target: ~48 estimated text lines fills the page comfortably.
-// (raw capacity ≈ 66 lines, minus section headers/spacing overhead)
-const TARGET_LINES = 48;
+// Target: ~58 estimated text lines fills the page comfortably.
+// With 5 roles × 5 bullets × ~2 lines/bullet = ~50 bullet lines alone,
+// plus headers, summary, skills, education ≈ 58-65 lines total.
+const TARGET_LINES = 58;
 
 // Trigger an expansion pass when any role has fewer than this many bullets.
-const MIN_BULLETS_BEFORE_EXPAND = 4;
+// Requiring 5 ensures every role is as dense as possible before the preview
+// shrinks font/spacing to fit.
+const MIN_BULLETS_BEFORE_EXPAND = 5;
 
 export function estimateResumeLineCount(data: ResumeData): number {
   let lines = 0;
@@ -55,14 +60,14 @@ export function estimateResumeLineCount(data: ResumeData): number {
 
 const EXPAND_SYSTEM_PROMPT = `You are an expert resume writer. Your sole task is to expand a resume so it completely fills a US letter page.
 
-TASK: For every role with fewer than 4 bullet points, add bullets until that role has exactly 4–5 bullets.
+TASK: For every role with fewer than 5 bullet points, add bullets until that role has exactly 5 bullets.
 
 ABSOLUTE RULES:
 - NEVER change company names, job titles, start/end dates, or education entries
 - NEVER remove or rewrite existing bullet points — only ADD new ones
 - New bullets must describe specific, realistic achievements consistent with that role and company
 - Lead every new bullet with a strong past-tense action verb (Managed, Built, Reduced, Launched, Led, Designed…)
-- 12–18 words per bullet; include a metric or outcome where plausible
+- 18–28 words per bullet; include context (team size, scope, tools, metrics) so bullets wrap to 2 lines on a letter page
 - Weave keywords from the provided job description in naturally
 - If the summary is fewer than 2 sentences, expand it to 2–3 full sentences
 - If the skills list has fewer than 12 entries, add relevant skills the candidate would plausibly have

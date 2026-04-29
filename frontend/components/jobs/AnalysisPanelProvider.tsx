@@ -6,6 +6,8 @@ import type { Job, JobAnalysis } from "@/backend/lib/types";
 type AnalysisJob = Omit<Job, "description"> & { description: string | null };
 export type AnalysisPanelScope = "jobs" | "discover";
 
+export type ChatMessage = { role: "user" | "assistant"; content: string };
+
 interface AnalysisPanelState {
   job: AnalysisJob | null;
   visible: boolean;
@@ -14,6 +16,8 @@ interface AnalysisPanelState {
   error: string | null;
   expandedEdit: number | null;
   applied: boolean;
+  chatOpen: boolean;
+  chatHistory: ChatMessage[];
 }
 
 const initialPanelState: AnalysisPanelState = {
@@ -24,6 +28,8 @@ const initialPanelState: AnalysisPanelState = {
   error: null,
   expandedEdit: 0,
   applied: false,
+  chatOpen: false,
+  chatHistory: [],
 };
 
 type AnalysisPanelsState = Record<AnalysisPanelScope, AnalysisPanelState>;
@@ -37,6 +43,8 @@ interface AnalysisPanelContextValue {
   runAnalysis: (scope: AnalysisPanelScope) => Promise<void>;
   setExpandedEdit: (scope: AnalysisPanelScope, i: number | null) => void;
   setApplied: (scope: AnalysisPanelScope, v: boolean) => void;
+  setChatOpen: (scope: AnalysisPanelScope, v: boolean) => void;
+  setChatHistory: (scope: AnalysisPanelScope, history: ChatMessage[]) => void;
 }
 
 const AnalysisPanelContext = createContext<AnalysisPanelContextValue | null>(null);
@@ -60,8 +68,8 @@ export function AnalysisPanelProvider({ children }: { children: React.ReactNode 
             analysis: null,
             error: null,
             expandedEdit: 0,
-            applied: false,
-          }
+            applied: false,            chatOpen: false,
+            chatHistory: [],          }
         : {
             ...panel,
             job: nextJob,
@@ -170,10 +178,19 @@ export function AnalysisPanelProvider({ children }: { children: React.ReactNode 
       setApplied: (scope: AnalysisPanelScope, v: boolean) => {
         setPanels((current) => ({
           ...current,
-          [scope]: {
-            ...current[scope],
-            applied: v,
-          },
+          [scope]: { ...current[scope], applied: v },
+        }));
+      },
+      setChatOpen: (scope: AnalysisPanelScope, v: boolean) => {
+        setPanels((current) => ({
+          ...current,
+          [scope]: { ...current[scope], chatOpen: v },
+        }));
+      },
+      setChatHistory: (scope: AnalysisPanelScope, history: ChatMessage[]) => {
+        setPanels((current) => ({
+          ...current,
+          [scope]: { ...current[scope], chatHistory: history },
         }));
       },
     }),
@@ -204,6 +221,8 @@ export function useAnalysisPanel() {
       runAnalysis: () => ctx.runAnalysis(scope),
       setExpandedEdit: (i: number | null) => ctx.setExpandedEdit(scope, i),
       setApplied: (v: boolean) => ctx.setApplied(scope, v),
+      setChatOpen: (v: boolean) => ctx.setChatOpen(scope, v),
+      setChatHistory: (history: ChatMessage[]) => ctx.setChatHistory(scope, history),
     };
   };
 }

@@ -22,7 +22,8 @@ BULLET POINT RULES (most important):
   GOOD: "Managed a portfolio of 40+ client accounts, maintaining 95% retention rate"
   BAD: "Managed client accounts"
 - Remove generic buzzwords: "critical thinker", "team player", "strong communicator" add no value
-- Make bullets concise — 10–18 words each
+- Make bullets substantial — 18–28 words each, describing the HOW and WHY, not just the WHAT
+- Include context (team size, scale, tools used, outcome) so bullets wrap to 2 lines in a letter-page layout
 - Weave in keywords from the job description naturally — do not keyword-stuff
 - If the original bullet is vague, rewrite it to be as specific and impactful as possible given the context
 

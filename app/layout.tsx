@@ -4,6 +4,7 @@ import "@/frontend/styles/globals.css";
 import { Navigation } from "@/frontend/components/layout/Navigation";
 import { Toaster } from "@/frontend/components/ui/Toaster";
 import { AnalysisPanelProvider } from "@/frontend/components/jobs/AnalysisPanelProvider";
+import { ResumeReviewProvider } from "@/frontend/components/resume/ResumeReviewProvider";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -17,9 +18,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className="dark">
       <body className={`${inter.className} bg-gray-950 text-white min-h-screen`} suppressHydrationWarning>
         <AnalysisPanelProvider>
-          <Navigation />
-          <main className="pt-16 min-h-screen">{children}</main>
-          <Toaster />
+          <ResumeReviewProvider>
+            <Navigation />
+            <main className="pt-16 min-h-screen">{children}</main>
+            <Toaster />
+          </ResumeReviewProvider>
         </AnalysisPanelProvider>
       </body>
     </html>

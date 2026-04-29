@@ -7,6 +7,8 @@ const DEMO_USER_ID = process.env.DEMO_USER_ID || "demo-user-1";
 export async function GET(req: NextRequest) {
   const { searchParams } = new URL(req.url);
   const limit = parseInt(searchParams.get("limit") || "10");
+  const remote = searchParams.get("remote") === "true";
+  const hasSalary = searchParams.get("hasSalary") === "true";
 
   try {
     const swipedIds = await prisma.swipe.findMany({
@@ -17,7 +19,11 @@ export async function GET(req: NextRequest) {
     const swipedSet = swipedIds.map((s) => s.jobId);
 
     const jobs = await prisma.job.findMany({
-      where: { id: { notIn: swipedSet.length > 0 ? swipedSet : undefined } },
+      where: {
+        id: { notIn: swipedSet.length > 0 ? swipedSet : undefined },
+        ...(remote && { location: { contains: "remote", mode: "insensitive" as const } }),
+        ...(hasSalary && { salary: { not: null } }),
+      },
       orderBy: { createdAt: "desc" },
       take: limit,
     });

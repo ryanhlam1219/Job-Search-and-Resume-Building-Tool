@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef } from "react"; // useState kept for swipeDir + SwipeCard's expanded
 import { motion, useMotionValue, useTransform, AnimatePresence } from "framer-motion";
 import { X, Heart, ThumbsUp, MapPin, Building2, DollarSign, ExternalLink, Sparkles } from "lucide-react";
 import ReactMarkdown from "react-markdown";
@@ -157,17 +157,17 @@ function SwipeCard({ job, onSwipe, isTop }: SwipeCardProps) {
 }
 
 interface SwipeInterfaceProps {
-  jobs: Job[];
+  stack: Job[];
   onSwipe: (jobId: string, action: SwipeAction) => void;
+  onStackChange: (newStack: Job[]) => void;
   onEmpty?: () => void;
 }
 
 const CARD_WIDTH = 400;
 const CARD_HEIGHT = 560;
 
-export function SwipeInterface({ jobs: initialJobs, onSwipe, onEmpty }: SwipeInterfaceProps) {
+export function SwipeInterface({ stack, onSwipe, onStackChange, onEmpty }: SwipeInterfaceProps) {
   const analysisPanel = useAnalysisPanel();
-  const [stack, setStack] = useState<Job[]>(initialJobs);
   const [swipeDir, setSwipeDir] = useState<"left" | "right" | null>(null);
   const swipePending = useRef(false);
   const { job: analysisJob, visible: analysisVisible, open: openAnalysis, close: closeAnalysis } = analysisPanel("discover");
@@ -182,7 +182,7 @@ export function SwipeInterface({ jobs: initialJobs, onSwipe, onEmpty }: SwipeInt
       onSwipe(job.id, action);
       setTimeout(() => {
         const newStack = stack.slice(0, -1);
-        setStack(newStack);
+        onStackChange(newStack);
         setSwipeDir(null);
         swipePending.current = false;
         if (newStack.length === 0) {
@@ -191,7 +191,7 @@ export function SwipeInterface({ jobs: initialJobs, onSwipe, onEmpty }: SwipeInt
         }
       }, 320);
     },
-    [stack, onSwipe, onEmpty, closeAnalysis]
+    [stack, onSwipe, onStackChange, onEmpty, closeAnalysis]
   );
 
   const topJob = stack[stack.length - 1];

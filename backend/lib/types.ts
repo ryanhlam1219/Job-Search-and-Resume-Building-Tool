@@ -77,6 +77,13 @@ export interface JobAnalysis {
   summary: string;             // 2-3 sentence overall assessment
   strengths: string[];         // what aligns well (3 bullets)
   gaps: string[];              // missing skills/experience (3 bullets)
+  developmentPlan: Array<{     // actionable skill-building roadmap
+    skill: string;             // name of the skill/area
+    priority: "critical" | "high" | "nice-to-have";
+    gap: string;               // one sentence: what's missing and why it matters
+    howToDevelop: string[];    // 3-4 concrete steps (courses, projects, certs)
+    resumeEvidence: string[];  // 2-3 specific items to add to resume to prove this skill
+  }>;
   suggestedEdits: {
     section: "summary" | "experience" | "skills";
     label: string;             // e.g. "Senior Engineer at Acme" or "Skills"

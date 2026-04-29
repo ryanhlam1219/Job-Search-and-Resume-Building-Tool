@@ -90,10 +90,23 @@ def normalize_job(row) -> dict:
     elif pd.notna(row.get("min_amount")):
         salary = f"${int(row['min_amount']):,}+ {row.get('currency', 'USD')}"
 
+    raw_location = str(row.get("location", "")) if pd.notna(row.get("location")) else None
+
+    # jobspy provides an is_remote flag — use it to enrich the location string so
+    # downstream DB filters (location ILIKE '%remote%') work for LinkedIn jobs that
+    # store a city name but are actually remote.
+    is_remote = bool(row.get("is_remote")) or bool(row.get("remote"))
+    if is_remote and raw_location and "remote" not in raw_location.lower():
+        location = raw_location + " (Remote)"
+    elif is_remote and not raw_location:
+        location = "Remote"
+    else:
+        location = raw_location
+
     return {
         "title": str(row.get("title", "")) if pd.notna(row.get("title")) else None,
         "company": str(row.get("company", "")) if pd.notna(row.get("company")) else None,
-        "location": str(row.get("location", "")) if pd.notna(row.get("location")) else None,
+        "location": location,
         "description": str(row.get("description", "")) if pd.notna(row.get("description")) else "",
         "salary": salary,
         "source": str(row.get("site", "unknown")),

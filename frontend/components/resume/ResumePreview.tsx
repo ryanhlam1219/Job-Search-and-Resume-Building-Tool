@@ -212,7 +212,7 @@ export function ResumePreview({ data, onFitChange, className, printMode = false,
         <div className={sp.section} style={sectionHighlight(highlights?.skills, printMode)}>
           <SectionHeader>Skills</SectionHeader>
           <p style={{ fontSize: `${fontSize}px`, color: "#374151", lineHeight: 1.4 }}>
-            {data.skills.slice(0, 12).join(" • ")}
+            {data.skills.slice(0, 16).join(" • ")}
           </p>
         </div>
       )}

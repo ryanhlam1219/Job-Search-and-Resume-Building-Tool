@@ -47,3 +47,33 @@ export async function callOpenAI<T>(
   }
   throw new Error("Ollama call failed after retries");
 }
+
+/** Chat variant — returns plain text (not JSON). Use for conversational turns. */
+export async function callOpenAIChat(
+  systemPrompt: string,
+  userContent: string,
+  retries = 2
+): Promise<string> {
+  const client = getOpenAI();
+
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    try {
+      const response = await client.chat.completions.create({
+        model: OLLAMA_MODEL,
+        messages: [
+          { role: "system", content: systemPrompt },
+          { role: "user", content: userContent },
+        ],
+        temperature: 0.4,
+      });
+
+      const content = response.choices[0].message.content;
+      if (!content) throw new Error("Empty response from Ollama");
+      return content;
+    } catch (err) {
+      if (attempt === retries) throw err;
+      await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
+    }
+  }
+  throw new Error("Ollama chat call failed after retries");
+}

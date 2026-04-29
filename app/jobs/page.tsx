@@ -54,7 +54,7 @@ export default function JobsPage() {
   // Separate input state (responsive) from query state (drives fetches)
   const [searchInput, setSearchInput] = useState("");
   const [locationInput, setLocationInput] = useState("");
-  const [query, setQuery] = useState({ search: "", location: "", source: "", page: 1 });
+  const [query, setQuery] = useState({ search: "", location: "", source: "", remote: false, hasSalary: false, page: 1 });
 
   const [selected, setSelected] = useState<Job | null>(null);
   const [saved, setSaved] = useState<Set<string>>(new Set());
@@ -64,7 +64,7 @@ export default function JobsPage() {
 
   const detailRef = useRef<HTMLDivElement>(null);
 
-  const fetchJobs = useCallback(async (s: string, loc: string, src: string, pg: number) => {
+  const fetchJobs = useCallback(async (s: string, loc: string, src: string, pg: number, remote: boolean, hasSalary: boolean) => {
     setLoading(true);
     try {
       const params = new URLSearchParams({
@@ -73,6 +73,8 @@ export default function JobsPage() {
         ...(s && { search: s }),
         ...(loc && { location: loc }),
         ...(src && { source: src }),
+        ...(remote && { remote: "true" }),
+        ...(hasSalary && { hasSalary: "true" }),
       });
       const res = await fetch(`/api/jobs?${params}`);
       const data = await res.json();
@@ -100,7 +102,7 @@ export default function JobsPage() {
 
   // THE single fetch effect — fires on every query change including initial render
   useEffect(() => {
-    fetchJobs(query.search, query.location, query.source, query.page);
+    fetchJobs(query.search, query.location, query.source, query.page, query.remote, query.hasSalary);
   }, [query, fetchJobs]);
 
   // Scroll detail panel to top when selection changes
@@ -163,7 +165,7 @@ export default function JobsPage() {
               className="w-full pl-8 pr-3 py-2 bg-white/5 border border-white/10 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-violet-500 text-sm"
             />
           </div>
-          <div className="flex gap-1">
+          <div className="flex gap-1 flex-wrap">
             {SOURCES.map((s) => (
               <button
                 key={s || "all"}
@@ -178,6 +180,29 @@ export default function JobsPage() {
                 {s || "All"}
               </button>
             ))}
+            <div className="w-px bg-white/10 mx-1 self-stretch" />
+            <button
+              onClick={() => setQuery((q) => ({ ...q, remote: !q.remote, location: "", page: 1 }))}
+              className={cn(
+                "px-3 py-2 rounded-lg text-xs font-medium border transition-colors",
+                query.remote
+                  ? "bg-blue-500/20 border-blue-500/40 text-blue-300"
+                  : "bg-white/5 border-white/10 text-gray-400 hover:text-white hover:bg-white/10"
+              )}
+            >
+              🌐 Remote
+            </button>
+            <button
+              onClick={() => setQuery((q) => ({ ...q, hasSalary: !q.hasSalary, page: 1 }))}
+              className={cn(
+                "px-3 py-2 rounded-lg text-xs font-medium border transition-colors",
+                query.hasSalary
+                  ? "bg-green-500/20 border-green-500/40 text-green-300"
+                  : "bg-white/5 border-white/10 text-gray-400 hover:text-white hover:bg-white/10"
+              )}
+            >
+              💰 Has Salary
+            </button>
           </div>
         </div>
       </div>

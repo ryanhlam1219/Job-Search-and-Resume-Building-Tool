@@ -4,8 +4,9 @@ import { useEffect, useState, useCallback, useRef } from "react";
 import { ResumeUpload } from "@/frontend/components/resume/ResumeUpload";
 import { ResumeEditor } from "@/frontend/components/resume/ResumeEditor";
 import { ResumePreview } from "@/frontend/components/resume/ResumePreview";
-import type { ResumeData, ResumeReview, ReviewHighlights } from "@/backend/lib/types";
+import type { ResumeData, ReviewHighlights } from "@/backend/lib/types";
 import { toast } from "@/frontend/components/ui/Toaster";
+import { useResumeReview } from "@/frontend/components/resume/ResumeReviewProvider";
 import {
   Save, Download, CheckCircle, AlertTriangle, Loader2, FileText, Wand2, Info,
   Sparkles, X, ChevronDown, ChevronUp
@@ -19,9 +20,7 @@ export default function ResumePage() {
   const [fits, setFits] = useState(true);
   const [adjustments, setAdjustments] = useState<string[]>([]);
   const [view, setView] = useState<"upload" | "edit">("upload");
-  const [review, setReview] = useState<ResumeReview | null>(null);
-  const [reviewing, setReviewing] = useState(false);
-  const [showReview, setShowReview] = useState(false);
+  const { review, reviewing, showReview, runReview, setShowReview, clearReview } = useResumeReview();
   const [tailorBanner, setTailorBanner] = useState<{ jobTitle: string; company: string } | null>(null);
 
   const highlights: ReviewHighlights | undefined = review ? {
@@ -126,26 +125,6 @@ export default function ResumePage() {
     setAdjustments(adj);
   }, []);
 
-  const handleReview = async () => {
-    if (!resumeData) return;
-    setReviewing(true);
-    try {
-      const res = await fetch("/api/resume/review", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resumeData }),
-      });
-      if (!res.ok) throw new Error("Review failed");
-      const { review: r } = await res.json();
-      setReview(r);
-      setShowReview(true);
-      toast("Review complete!", "success");
-    } catch {
-      toast("Review failed — is Ollama running?", "error");
-    } finally {
-      setReviewing(false);
-    }
-  };
 
   if (view === "upload" && !resumeData) {
     return (
@@ -207,7 +186,7 @@ export default function ResumePage() {
           </div>
 
           <button
-            onClick={handleReview}
+            onClick={() => resumeData && runReview(resumeData)}
             disabled={reviewing || !resumeData}
             className={cn(
               "flex items-center gap-2 px-4 py-2 border rounded-xl text-sm font-medium transition-colors disabled:opacity-50",
@@ -272,7 +251,7 @@ export default function ResumePage() {
           <div className="flex items-center justify-between mb-5">
             <h2 className="text-white font-semibold">Edit Content</h2>
             <button
-              onClick={() => { setView("upload"); setResumeData(null); setReview(null); setShowReview(false); setTailorBanner(null); }}
+              onClick={() => { setView("upload"); setResumeData(null); clearReview(); setTailorBanner(null); }}
               className="text-gray-500 hover:text-gray-300 text-xs flex items-center gap-1"
             >
               <Wand2 size={11} /> Re-upload

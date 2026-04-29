@@ -13,7 +13,16 @@ Return ONLY valid JSON matching this exact schema:
   "matchScore": number (0-100, honest assessment),
   "summary": string (2-3 sentences: overall fit, biggest strength, biggest gap),
   "strengths": string[] (exactly 3 short bullet strings — what aligns well),
-  "gaps": string[] (exactly 3 short bullet strings — skills/experience missing),
+  "gaps": string[] (exactly 3 short bullet strings — critical skills/experience missing),
+  "developmentPlan": [
+    {
+      "skill": string (name of the skill or area, e.g. "Epic EMR Proficiency"),
+      "priority": "critical" | "high" | "nice-to-have",
+      "gap": string (one sentence: what is missing and why it matters for this role),
+      "howToDevelop": string[] (3-4 concrete, specific steps — name real courses, certifications, project ideas, or communities),
+      "resumeEvidence": string[] (2-3 very specific items the candidate can ADD to their resume to prove this skill to a recruiter — e.g. "Add a bullet: 'Completed Epic EMR Fundamentals certification (2024)'" or "Volunteer at a clinic to gain hands-on scheduling experience and describe it in a new resume bullet")
+    }
+  ],
   "suggestedEdits": [
     {
       "section": "summary" | "experience" | "skills",
@@ -26,6 +35,12 @@ Return ONLY valid JSON matching this exact schema:
   "tailoredResume": { ...full ResumeData object with ALL suggested edits applied... }
 }
 
+Rules for developmentPlan:
+- Include 2-4 items, most critical first
+- Be SPECIFIC: name real courses (Coursera, LinkedIn Learning, edX, YouTube channels), real certifications (SHRM, Epic, HIPAA), real tools to practice with
+- resumeEvidence must be actionable and concrete — not vague like "demonstrate skills" but specific like "Add project: built a scheduling dashboard in Excel tracking 50+ appointments"
+- This is for someone actively job hunting NOW — suggest fast paths (weeks, not years)
+
 Rules for suggestedEdits:
 - Provide 2-4 edits max, most impactful first
 - Never fabricate experience, companies, dates, or degrees
@@ -35,7 +50,7 @@ Rules for tailoredResume (CRITICAL — the resume must fill a full US letter pag
 - Write 4-5 bullets per role — always aim for 5 unless the role genuinely had fewer responsibilities
 - Lead every bullet with a strong action verb (Managed, Built, Reduced, Increased, Led, Designed)
 - Prioritize achievements over responsibilities — show impact with numbers where the original has data
-- Bullets should be 10-18 words each (concise but complete)
+- Bullets should be 18-28 words each — describe the HOW and WHY, not just the WHAT; include context (scale, tools, outcomes) so bullets naturally wrap to 2 lines
 - Summary: 2-3 sentences tailored to the target job, no buzzwords
 - Skills: include 12-16 skills, most-relevant first, no soft skills
 - Generate enough content so the resume fills a full page — more content is better than less`;
@@ -65,7 +80,7 @@ export async function POST(
       );
     }
 
-    const resumeData = resume.data as ResumeData;
+    const resumeData = resume.data as unknown as ResumeData;
 
     const analysis = await callOpenAI<JobAnalysis>(
       ANALYZE_SYSTEM_PROMPT,
