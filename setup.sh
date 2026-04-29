@@ -149,9 +149,9 @@ install_ollama() {
 }
 
 download_ai_model() {
-  step "Step 6/7 — Downloading AI model (llama3.2, ~2 GB)"
+  step "Step 6/7 — Downloading AI model (gpt-oss:120b-cloud)"
   echo ""
-  echo -e "  ${YELLOW}This is the biggest download — about 2 GB.${NC}"
+  echo -e "  ${YELLOW}This may take a few minutes depending on your connection.${NC}"
   echo "  The progress bar will appear below. Just let it run!"
   echo "  ☕ Good time for a coffee break."
   echo ""
@@ -163,7 +163,7 @@ download_ai_model() {
     sleep 3
   fi
 
-  ollama pull llama3.2 || die "Failed to download the AI model. Check your internet connection."
+  ollama pull gpt-oss:120b-cloud || die "Failed to download the AI model. Check your internet connection."
 
   # Kill temp ollama if we started it
   kill "$OLLAMA_PID" 2>/dev/null || true
