@@ -1,11 +1,12 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react"; // useState kept for swipeDir + SwipeCard's expanded
+import { useState, useCallback, useRef } from "react";
 import { motion, useMotionValue, useTransform, AnimatePresence } from "framer-motion";
-import { X, Heart, ThumbsUp, MapPin, Building2, DollarSign, ExternalLink, Sparkles } from "lucide-react";
+import { X, Heart, ThumbsUp, MapPin, Building2, DollarSign, ExternalLink, Sparkles, RotateCcw } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import type { Job, SwipeAction } from "@/backend/lib/types";
 import { cn } from "@/backend/lib/utils";
+import { logger } from "@/frontend/lib/logger";
 import { useAnalysisPanel } from "@/frontend/components/jobs/AnalysisPanelProvider";
 import { AnalysisPanelContent } from "@/frontend/components/jobs/AnalysisPanelContent";
 
@@ -161,12 +162,14 @@ interface SwipeInterfaceProps {
   onSwipe: (jobId: string, action: SwipeAction) => void;
   onStackChange: (newStack: Job[]) => void;
   onEmpty?: () => void;
+  onUndo?: () => void;
+  canUndo?: boolean;
 }
 
 const CARD_WIDTH = 400;
 const CARD_HEIGHT = 560;
 
-export function SwipeInterface({ stack, onSwipe, onStackChange, onEmpty }: SwipeInterfaceProps) {
+export function SwipeInterface({ stack, onSwipe, onStackChange, onEmpty, onUndo, canUndo = false }: SwipeInterfaceProps) {
   const analysisPanel = useAnalysisPanel();
   const [swipeDir, setSwipeDir] = useState<"left" | "right" | null>(null);
   const swipePending = useRef(false);
@@ -178,6 +181,7 @@ export function SwipeInterface({ stack, onSwipe, onStackChange, onEmpty }: Swipe
       swipePending.current = true;
       const job = stack[stack.length - 1];
       const dir: "left" | "right" = action === "NOT_INTERESTED" ? "left" : "right";
+      logger.debug("SwipeInterface", "Swipe initiated", { jobId: job.id, action, dir, stackRemaining: stack.length - 1 });
       setSwipeDir(dir);
       onSwipe(job.id, action);
       setTimeout(() => {
@@ -185,6 +189,7 @@ export function SwipeInterface({ stack, onSwipe, onStackChange, onEmpty }: Swipe
         onStackChange(newStack);
         setSwipeDir(null);
         swipePending.current = false;
+        logger.debug("SwipeInterface", "Stack updated after swipe", { remaining: newStack.length });
         if (newStack.length === 0) {
           closeAnalysis();
           onEmpty?.();
@@ -276,7 +281,7 @@ export function SwipeInterface({ stack, onSwipe, onStackChange, onEmpty }: Swipe
         </button>
 
         {/* Action buttons */}
-        <div className="flex items-center gap-6">
+        <div className="flex items-center gap-4">
           <button
             type="button"
             onClick={() => handleSwipe("NOT_INTERESTED")}
@@ -284,6 +289,15 @@ export function SwipeInterface({ stack, onSwipe, onStackChange, onEmpty }: Swipe
             title="Not interested"
           >
             <X size={22} />
+          </button>
+          <button
+            type="button"
+            onClick={onUndo}
+            disabled={!canUndo}
+            className="w-10 h-10 rounded-full bg-gray-700/40 border border-white/10 flex items-center justify-center text-gray-400 hover:bg-gray-700/70 hover:text-white hover:scale-110 transition-all disabled:opacity-30 disabled:cursor-not-allowed disabled:hover:scale-100"
+            title="Undo last swipe"
+          >
+            <RotateCcw size={16} />
           </button>
           <button
             type="button"

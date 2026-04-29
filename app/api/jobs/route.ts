@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/backend/lib/prisma";
+import { logger } from "@/backend/lib/logger";
 
 const DEMO_USER_ID = process.env.DEMO_USER_ID || "demo-user-1";
 
@@ -36,6 +37,8 @@ export async function GET(req: NextRequest) {
     ...(hasSalary && { salary: { not: null } }),
   };
 
+  logger.debug("jobs/GET", "Fetching jobs", { page, limit, search, location, source, remote, hasSalary });
+
   try {
     const [jobs, total] = await Promise.all([
       prisma.job.findMany({
@@ -47,8 +50,10 @@ export async function GET(req: NextRequest) {
       prisma.job.count({ where }),
     ]);
 
+    logger.info("jobs/GET", "Jobs fetched", { total, returned: jobs.length, page });
     return NextResponse.json({ jobs, total, page, limit });
-  } catch {
+  } catch (err) {
+    logger.error("jobs/GET", "Failed to fetch jobs", err);
     return NextResponse.json({ error: "Failed to fetch jobs" }, { status: 500 });
   }
 }
@@ -61,6 +66,8 @@ export async function POST(req: NextRequest) {
 
     const scraperUrl = process.env.SCRAPER_SERVICE_URL || "http://localhost:8000";
     const params = new URLSearchParams({ search_term, location, results_wanted: String(results_wanted) });
+
+    logger.info("jobs/POST", "Triggering scrape", { search_term, location, results_wanted });
 
     const scraperRes = await fetch(`${scraperUrl}/scrape-jobs?${params}`, {
       signal: AbortSignal.timeout(120000),
@@ -79,6 +86,8 @@ export async function POST(req: NextRequest) {
       source: string;
       url: string;
     }> = await scraperRes.json();
+
+    logger.debug("jobs/POST", "Scraper returned results", { count: scraped.length });
 
     let created = 0;
     for (const job of scraped) {
@@ -105,8 +114,10 @@ export async function POST(req: NextRequest) {
 
     await ensureDemoUser();
 
+    logger.info("jobs/POST", "Scrape complete", { scraped: scraped.length, created });
     return NextResponse.json({ message: `Scraped and stored ${created} jobs`, total: created });
   } catch (err) {
+    logger.error("jobs/POST", "Scrape failed", err);
     const msg = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: msg }, { status: 500 });
   }

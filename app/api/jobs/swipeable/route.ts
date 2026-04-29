@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/backend/lib/prisma";
+import { logger } from "@/backend/lib/logger";
 
 const DEMO_USER_ID = process.env.DEMO_USER_ID || "demo-user-1";
 
@@ -28,14 +29,23 @@ export async function GET(req: NextRequest) {
       take: limit,
     });
 
+    logger.info("jobs/swipeable/GET", "Swipeable jobs fetched", {
+      limit,
+      remote,
+      hasSalary,
+      swipedAlready: swipedSet.length,
+      returned: jobs.length,
+    });
     return NextResponse.json(jobs);
-  } catch {
+  } catch (err) {
+    logger.error("jobs/swipeable/GET", "Failed to fetch swipeable jobs", err);
     return NextResponse.json({ error: "Failed to fetch swipeable jobs" }, { status: 500 });
   }
 }
 
 // DELETE /api/jobs/swipeable — purge all discover jobs and related rows
 export async function DELETE() {
+  logger.warn("jobs/swipeable/DELETE", "Purging all discover jobs");
   try {
     const jobIds = await prisma.job.findMany({
       select: { id: true },
@@ -43,6 +53,7 @@ export async function DELETE() {
 
     const ids = jobIds.map((j) => j.id);
     if (ids.length === 0) {
+      logger.info("jobs/swipeable/DELETE", "Nothing to purge");
       return NextResponse.json({ deletedJobs: 0, deletedSwipes: 0, deletedApplications: 0 });
     }
 
@@ -52,12 +63,18 @@ export async function DELETE() {
       prisma.job.deleteMany({ where: { id: { in: ids } } }),
     ]);
 
+    logger.info("jobs/swipeable/DELETE", "Purge complete", {
+      deletedJobs: deletedJobs.count,
+      deletedSwipes: deletedSwipes.count,
+      deletedApplications: deletedApplications.count,
+    });
     return NextResponse.json({
       deletedJobs: deletedJobs.count,
       deletedSwipes: deletedSwipes.count,
       deletedApplications: deletedApplications.count,
     });
-  } catch {
+  } catch (err) {
+    logger.error("jobs/swipeable/DELETE", "Purge failed", err);
     return NextResponse.json({ error: "Failed to purge discover jobs" }, { status: 500 });
   }
 }

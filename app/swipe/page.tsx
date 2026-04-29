@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { SwipeInterface } from "@/frontend/components/jobs/SwipeInterface";
 import type { Job, SwipeAction } from "@/backend/lib/types";
 import { toast } from "@/frontend/components/ui/Toaster";
+import { logger } from "@/frontend/lib/logger";
 import { Loader2, Sparkles, Search, MapPin, ChevronDown, ChevronUp, Trash2 } from "lucide-react";
 import { cn } from "@/backend/lib/utils";
 
@@ -31,6 +32,7 @@ const SUGGESTED_LOCATIONS = [
 export default function SwipePage() {
   const [jobs, setJobs] = useState<Job[]>([]);
   const [stack, setStack] = useState<Job[]>([]);
+  const [history, setHistory] = useState<Job[]>([]); // undo history — last swiped at end
   const [loading, setLoading] = useState(true);
   const [scraping, setScraping] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -49,9 +51,12 @@ export default function SwipePage() {
       const res = await fetch(`/api/jobs/swipeable?${params}`);
       if (!res.ok) throw new Error("Failed to load jobs");
       const data = await res.json();
+      logger.info("SwipePage", "Stack loaded", { count: data.length, remote, hasSalary });
       setJobs(data);
       setStack(data);
-    } catch {
+      setHistory([]); // clear undo history on fresh fetch
+    } catch (err) {
+      logger.error("SwipePage", "Failed to load swipeable jobs", err);
       toast("Failed to load jobs", "error");
     } finally {
       setLoading(false);
@@ -90,6 +95,12 @@ export default function SwipePage() {
   }, [searchTerm, location, fetchJobs]);
 
   const handleSwipe = useCallback(async (jobId: string, action: SwipeAction) => {
+    // Find the job being swiped and push to history BEFORE the API call
+    const swipedJob = stack.find((j) => j.id === jobId);
+    if (swipedJob) {
+      setHistory((prev) => [...prev, swipedJob]);
+      logger.info("SwipePage", "Card swiped", { jobId, action, historySize: history.length + 1 });
+    }
     try {
       const res = await fetch("/api/swipes", {
         method: "POST",
@@ -103,9 +114,29 @@ export default function SwipePage() {
       if (action === "INTERESTED") toast("Saved to applications!", "success");
       if (action === "HIGH_PRIORITY") toast("Saved to applications! ⭐ High priority", "success");
     } catch (e) {
+      logger.error("SwipePage", "Swipe API call failed", e);
       toast(`Failed to save: ${e instanceof Error ? e.message : "unknown error"}`, "error");
     }
-  }, []);
+  }, [stack, history]);
+
+  const handleUndo = useCallback(async () => {
+    if (history.length === 0) return;
+    const lastJob = history[history.length - 1];
+    logger.info("SwipePage", "Undoing swipe", { jobId: lastJob.id, title: lastJob.title });
+    try {
+      await fetch("/api/swipes", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ jobId: lastJob.id }),
+      });
+      setHistory((prev) => prev.slice(0, -1));
+      setStack((prev) => [...prev, lastJob]);
+      logger.info("SwipePage", "Undo successful", { jobId: lastJob.id, stackSize: stack.length + 1 });
+    } catch (e) {
+      logger.error("SwipePage", "Undo failed", e);
+      toast("Failed to undo", "error");
+    }
+  }, [history, stack]);
 
   const handlePurgeDiscover = useCallback(async () => {
     if (!confirm("Purge all Discover jobs? This removes jobs, swipes, and applications linked to those jobs.")) {
@@ -295,6 +326,8 @@ export default function SwipePage() {
           onSwipe={handleSwipe}
           onStackChange={setStack}
           onEmpty={fetchJobs}
+          onUndo={handleUndo}
+          canUndo={history.length > 0}
         />
       </div>
     </div>

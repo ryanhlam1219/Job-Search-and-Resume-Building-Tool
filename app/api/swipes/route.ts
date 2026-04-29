@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/backend/lib/prisma";
+import { logger } from "@/backend/lib/logger";
 import type { SwipeAction } from "@/backend/lib/types";
 
 const DEMO_USER_ID = process.env.DEMO_USER_ID || "demo-user-1";
@@ -12,6 +13,8 @@ export async function POST(req: NextRequest) {
     if (!jobId || !action) {
       return NextResponse.json({ error: "jobId and action required" }, { status: 400 });
     }
+
+    logger.info("swipes/POST", "Recording swipe", { jobId, action });
 
     await prisma.user.upsert({
       where: { id: DEMO_USER_ID },
@@ -37,10 +40,42 @@ export async function POST(req: NextRequest) {
         },
         update: {},
       });
+      logger.info("swipes/POST", "Application auto-created", { jobId, action });
     }
 
+    logger.debug("swipes/POST", "Swipe saved", { swipeId: swipe.id, jobId, action });
     return NextResponse.json(swipe);
   } catch (err) {
+    logger.error("swipes/POST", "Failed to record swipe", err);
+    const msg = err instanceof Error ? err.message : "Unknown error";
+    return NextResponse.json({ error: msg }, { status: 500 });
+  }
+}
+
+// DELETE /api/swipes — undo a swipe (removes the swipe record so the card reappears on next load)
+export async function DELETE(req: NextRequest) {
+  try {
+    const { jobId }: { jobId: string } = await req.json();
+
+    if (!jobId) {
+      return NextResponse.json({ error: "jobId required" }, { status: 400 });
+    }
+
+    logger.info("swipes/DELETE", "Undoing swipe", { jobId });
+
+    await prisma.swipe.deleteMany({
+      where: { userId: DEMO_USER_ID, jobId },
+    });
+
+    // Also remove the auto-created application if it's still in SAVED status
+    await prisma.application.deleteMany({
+      where: { userId: DEMO_USER_ID, jobId, status: "SAVED" },
+    });
+
+    logger.info("swipes/DELETE", "Swipe undone", { jobId });
+    return NextResponse.json({ success: true });
+  } catch (err) {
+    logger.error("swipes/DELETE", "Failed to undo swipe", err);
     const msg = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
@@ -54,8 +89,10 @@ export async function GET() {
       include: { job: true },
       orderBy: { createdAt: "desc" },
     });
+    logger.debug("swipes/GET", "Swipes fetched", { count: swipes.length });
     return NextResponse.json(swipes);
-  } catch {
+  } catch (err) {
+    logger.error("swipes/GET", "Failed to fetch swipes", err);
     return NextResponse.json({ error: "Failed to fetch swipes" }, { status: 500 });
   }
 }

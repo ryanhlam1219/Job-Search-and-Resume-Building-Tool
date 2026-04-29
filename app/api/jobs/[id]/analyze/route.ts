@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/backend/lib/prisma";
 import { callOpenAI } from "@/backend/lib/openai";
+import { logger } from "@/backend/lib/logger";
 import { expandResumeToFillPage } from "@/backend/lib/resume-fill";
 import type { JobAnalysis, ResumeData } from "@/backend/lib/types";
 
@@ -61,10 +62,12 @@ export async function POST(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
+  logger.info("jobs/analyze/POST", "Starting analysis", { jobId: id });
 
   try {
     const job = await prisma.job.findUnique({ where: { id } });
     if (!job) {
+      logger.warn("jobs/analyze/POST", "Job not found", { jobId: id });
       return NextResponse.json({ error: "Job not found" }, { status: 404 });
     }
 
@@ -74,6 +77,7 @@ export async function POST(
     });
 
     if (!resume) {
+      logger.warn("jobs/analyze/POST", "No resume on file for user", { jobId: id });
       return NextResponse.json(
         { error: "No resume found. Upload your resume first." },
         { status: 404 }
@@ -82,6 +86,7 @@ export async function POST(
 
     const resumeData = resume.data as unknown as ResumeData;
 
+    logger.debug("jobs/analyze/POST", "Calling LLM", { jobId: id, jobTitle: job.title });
     const analysis = await callOpenAI<JobAnalysis>(
       ANALYZE_SYSTEM_PROMPT,
       `JOB TITLE: ${job.title}
@@ -113,8 +118,10 @@ ${JSON.stringify(resumeData, null, 2)}`
       );
     }
 
+    logger.info("jobs/analyze/POST", "Analysis complete", { jobId: id, matchScore: analysis.matchScore });
     return NextResponse.json({ analysis });
   } catch (err) {
+    logger.error("jobs/analyze/POST", "Analysis failed", { jobId: id, err });
     const msg = err instanceof Error ? err.message : "Unknown error";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
