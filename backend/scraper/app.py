@@ -124,7 +124,7 @@ def scrape():
     location = request.args.get("location", "United States")
     results_wanted = min(int(request.args.get("results_wanted", 50)), 100)
 
-    sites = ["indeed", "linkedin", "glassdoor"]
+    sites = ["indeed", "linkedin"]
     all_jobs = []
 
     for site in sites:
