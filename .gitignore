@@ -30,6 +30,9 @@ yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
 
+# app logs
+.logs/
+
 # env files — ignore real env files but track the example template
 .env*
 !.env.example
