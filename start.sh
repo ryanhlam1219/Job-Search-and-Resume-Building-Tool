@@ -47,7 +47,10 @@ stop_services() {
     if [[ -f "$PID_FILE" ]]; then
       PID=$(cat "$PID_FILE")
       if kill -0 "$PID" 2>/dev/null; then
-        kill "$PID" && success "Stopped $svc (pid $PID)"
+        # Kill the process and all its children (next-server, turbopack workers, etc.)
+        kill -- -"$(ps -o pgid= -p "$PID" 2>/dev/null | tr -d ' ')" 2>/dev/null \
+          || kill "$PID" 2>/dev/null || true
+        success "Stopped $svc (pid $PID)"
       else
         warn "$svc (pid $PID) was not running"
       fi
@@ -56,6 +59,10 @@ stop_services() {
       warn "No PID file for $svc"
     fi
   done
+
+  # Belt-and-suspenders: kill any lingering next-server or turbopack processes
+  pkill -f "next-server" 2>/dev/null || true
+  pkill -f "next dev" 2>/dev/null || true
 
   # Stop PostgreSQL if we started it via brew services
   if brew services list 2>/dev/null | grep -q "postgresql.*started"; then
