@@ -249,8 +249,10 @@ setup_database() {
     success "Database schema already up to date"
   else
     npx prisma generate --no-hints 2>/dev/null || npx prisma generate
-    # Clear Next.js webpack cache so it recompiles with the new Prisma client
-    rm -rf "$SCRIPT_DIR/.next/cache"
+    # Wipe the entire .next directory so Next.js recompiles against the new Prisma client.
+    # Only .next/cache is insufficient — Turbopack's dev cache (.next/dev/cache) also
+    # bundles the old client and will cause runtime errors if left behind.
+    rm -rf "$SCRIPT_DIR/.next"
     success "Prisma migrations applied"
   fi
 
