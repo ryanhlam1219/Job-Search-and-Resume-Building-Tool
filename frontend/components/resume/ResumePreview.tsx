@@ -140,6 +140,9 @@ export function ResumePreview({ data, onFitChange, className, printMode = false,
         lineHeight: 1.35,
         padding: "36px 48px",
         boxSizing: "border-box",
+        backgroundColor: "#ffffff",
+        color: "#111827",
+        border: printMode ? "none" : "1px solid rgba(0,0,0,0.18)",
       }}
     >
       {/* Header */}

@@ -262,7 +262,7 @@ export default function JobsPage() {
                           <div className="flex-1 min-w-0">
                             <p className={cn(
                               "text-sm font-semibold leading-snug truncate",
-                              selected?.id === job.id ? "text-violet-200" : "text-white group-hover:text-white"
+                              selected?.id === job.id ? "text-violet-400" : "text-white group-hover:text-white"
                             )}>
                               {job.title}
                             </p>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -10,8 +10,9 @@ import { cn } from "@/backend/lib/utils";
 import {
   X, Loader2, Sparkles, ChevronDown, ChevronUp,
   TrendingUp, AlertCircle, CheckCircle2, ArrowRight, Wand2,
-  MessageCircle, Send, BookOpen, Target,
+  MessageCircle, Send, BookOpen, Target, Maximize2,
 } from "lucide-react";
+import * as Dialog from "@radix-ui/react-dialog";
 import type { JobAnalysis } from "@/backend/lib/types";
 
 // ---------------------------------------------------------------------------
@@ -53,6 +54,33 @@ function parseExperienceBullets(raw: unknown): string[] {
   if (byNewline.length > 1) return byNewline;
 
   return cleaned.split(/(?<=[.!?])\s+(?=[A-Z])/).map((s) => s.trim()).filter(Boolean);
+}
+
+/**
+ * Walk React children and replace literal `<br>` / `<br/>` strings with real
+ * <br /> elements so AI-generated table cells render correctly.
+ */
+function renderWithBr(children: React.ReactNode): React.ReactNode {
+  if (typeof children === "string") {
+    const parts = children.split(/(<br\s*\/?>)/gi);
+    if (parts.length === 1) return children;
+    return parts.map((part, i) =>
+      /^<br\s*\/?>$/i.test(part) ? <br key={i} /> : part
+    );
+  }
+  if (Array.isArray(children)) {
+    return children.map((child, i) => (
+      <React.Fragment key={i}>{renderWithBr(child)}</React.Fragment>
+    ));
+  }
+  if (React.isValidElement<{ children?: React.ReactNode }>(children)) {
+    return React.cloneElement(
+      children as React.ReactElement<{ children?: React.ReactNode }>,
+      {},
+      renderWithBr((children as React.ReactElement<{ children?: React.ReactNode }>).props.children)
+    );
+  }
+  return children;
 }
 
 function renderSuggestionText(
@@ -108,6 +136,9 @@ export function AnalysisPanelContent({ scope }: { scope: AnalysisPanelScope }) {
 
   // Active tab in results view
   const [activeTab, setActiveTab] = useState<"overview" | "devplan" | "edits">("overview");
+
+  // Expanded table modal
+  const [expandedTable, setExpandedTable] = useState<React.ReactNode | null>(null);
 
   // Auto-analyze when a new job is opened with no analysis yet
   useEffect(() => {
@@ -269,7 +300,15 @@ export function AnalysisPanelContent({ scope }: { scope: AnalysisPanelScope }) {
                         remarkPlugins={[remarkGfm]}
                         components={{
                           table: ({ children }) => (
-                            <div className="overflow-x-auto my-2 rounded-lg border border-white/10">
+                            <div className="relative group overflow-x-auto my-2 rounded-lg border border-white/10">
+                              <button
+                                type="button"
+                                onClick={() => setExpandedTable(children)}
+                                title="Expand table"
+                                className="absolute top-1.5 right-1.5 z-10 opacity-0 group-hover:opacity-100 p-1 rounded bg-white/10 hover:bg-violet-500/30 text-gray-400 hover:text-violet-300 transition-all"
+                              >
+                                <Maximize2 size={11} />
+                              </button>
                               <table className="min-w-max border-collapse text-xs">{children}</table>
                             </div>
                           ),
@@ -278,7 +317,7 @@ export function AnalysisPanelContent({ scope }: { scope: AnalysisPanelScope }) {
                             <th className="px-3 py-1.5 text-left text-xs font-semibold text-gray-300 border-b border-white/10 whitespace-nowrap">{children}</th>
                           ),
                           td: ({ children }) => (
-                            <td className="px-3 py-1.5 text-xs text-gray-300 border-b border-white/5 align-top" style={{ wordBreak: "normal", overflowWrap: "normal", whiteSpace: "normal" }}>{children}</td>
+                            <td className="px-3 py-1.5 text-xs text-gray-300 border-b border-white/5 align-top" style={{ wordBreak: "normal", overflowWrap: "normal", whiteSpace: "normal" }}>{renderWithBr(children)}</td>
                           ),
                           tr: ({ children }) => <tr className="hover:bg-white/3 transition-colors">{children}</tr>,
                           pre: ({ children }) => (
@@ -563,6 +602,33 @@ export function AnalysisPanelContent({ scope }: { scope: AnalysisPanelScope }) {
           </div>
         </>
       )}
+
+      {/* Expanded table modal */}
+      <Dialog.Root open={!!expandedTable} onOpenChange={(open) => { if (!open) setExpandedTable(null); }}>
+        <Dialog.Portal>
+          <Dialog.Overlay className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0" />
+          <Dialog.Content className="fixed left-1/2 top-1/2 z-50 -translate-x-1/2 -translate-y-1/2 w-[90vw] max-w-4xl max-h-[80vh] flex flex-col bg-gray-900 border border-white/10 rounded-2xl shadow-2xl data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95">
+            {/* Modal header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10 flex-shrink-0">
+              <div className="flex items-center gap-2">
+                <Maximize2 size={13} className="text-violet-400" />
+                <Dialog.Title className="text-white text-sm font-semibold m-0">Table View</Dialog.Title>
+              </div>
+              <Dialog.Close asChild>
+                <button type="button" className="p-1.5 rounded-lg text-gray-500 hover:text-white hover:bg-white/5 transition-colors">
+                  <X size={15} />
+                </button>
+              </Dialog.Close>
+            </div>
+            {/* Modal body — scrollable */}
+            <div className="flex-1 overflow-auto p-4 font-sans">
+              <table className="w-full border-collapse [&_thead]:bg-white/5 [&_th]:px-4 [&_th]:py-2.5 [&_th]:text-left [&_th]:text-sm [&_th]:font-semibold [&_th]:text-gray-200 [&_th]:border-b [&_th]:border-white/10 [&_th]:whitespace-nowrap [&_td]:px-4 [&_td]:py-3 [&_td]:text-sm [&_td]:text-gray-300 [&_td]:leading-relaxed [&_td]:border-b [&_td]:border-white/5 [&_td]:align-top [&_tr:hover_td]:bg-white/3">
+                {expandedTable}
+              </table>
+            </div>
+          </Dialog.Content>
+        </Dialog.Portal>
+      </Dialog.Root>
     </div>
   );
 }

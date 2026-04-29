@@ -1,8 +1,58 @@
 @import "tailwindcss";
+@plugin "tailwindcss-animate";
 
+/* ─── Default (dark mode) ─── */
 :root {
   --background: #030712;
   --foreground: #f9fafb;
+  --scrollbar-thumb: rgba(255, 255, 255, 0.1);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.2);
+}
+
+/* ─── Light mode: invert Tailwind v4 gray scale + white ───────────────────────
+   Tailwind v4 color utilities use var(--color-*) under the hood, so redefining
+   these variables here causes every hardcoded gray/white class to adapt without
+   touching a single component.
+   Mapping rule: gray-N (light) = gray-(950-N) (dark) approx, white → near-black.
+ ──────────────────────────────────────────────────────────────────────────── */
+.light {
+  --color-gray-950: oklch(98.5% 0.002 247.839);  /* was gray-50  */
+  --color-gray-900: oklch(96.7% 0.003 264.542);  /* was gray-100 */
+  --color-gray-800: oklch(92.8% 0.006 264.531);  /* was gray-200 */
+  --color-gray-700: oklch(87.2% 0.01  258.338);  /* was gray-300 */
+  --color-gray-600: oklch(70.7% 0.022 261.325);  /* was gray-400 */
+  --color-gray-500: oklch(55.1% 0.027 264.364);  /* neutral – unchanged */
+  --color-gray-400: oklch(44.6% 0.03  256.802);  /* was gray-600 */
+  --color-gray-300: oklch(37.3% 0.034 259.733);  /* was gray-700 */
+  --color-gray-200: oklch(27.8% 0.033 256.848);  /* was gray-800 */
+  --color-gray-100: oklch(21%   0.034 264.665);  /* was gray-900 */
+  --color-gray-50:  oklch(13%   0.028 261.692);  /* was gray-950 */
+  /* white → near-black so that text-white becomes dark headings,
+     and bg-white/* overlays become subtle dark tints on light backgrounds */
+  --color-white: oklch(10% 0 0);
+
+  /* Darken violet so text-violet-300/400/500 is readable on light backgrounds */
+  --color-violet-300: oklch(54.1% 0.281 293.009);  /* was violet-600 */
+  --color-violet-400: oklch(49.1% 0.27  292.581);  /* was violet-700 */
+
+  /* Darken green so text-green-300/400/500 is readable on light backgrounds */
+  --color-green-300: oklch(44.8% 0.119 151.328);  /* was green-800 */
+  --color-green-400: oklch(39.3% 0.095 152.535);  /* was green-900 */
+  --color-green-500: oklch(26.6% 0.065 152.934);  /* was green-950 */
+
+  --background: oklch(98.5% 0.002 247.839);
+  --foreground: oklch(10% 0 0);
+  --scrollbar-thumb: rgba(0, 0, 0, 0.12);
+  --scrollbar-thumb-hover: rgba(0, 0, 0, 0.22);
+}
+
+/* Restore true white text on solid-color button/badge backgrounds so that
+   text-white on bg-violet-600, bg-green-600, etc. stays legible in light mode. */
+.light .bg-violet-600,
+.light .bg-violet-500,
+.light .bg-green-600,
+.light .bg-green-500 {
+  --color-white: #fff;
 }
 
 * {
@@ -24,11 +74,11 @@ body {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--scrollbar-thumb);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--scrollbar-thumb-hover);
 }
 
 /* Resume bullet clamp */
