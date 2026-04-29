@@ -3,6 +3,7 @@ import { Inter } from "next/font/google";
 import "@/frontend/styles/globals.css";
 import { Navigation } from "@/frontend/components/layout/Navigation";
 import { Toaster } from "@/frontend/components/ui/Toaster";
+import { UpdateBanner } from "@/frontend/components/ui/UpdateBanner";
 import { AnalysisPanelProvider } from "@/frontend/components/jobs/AnalysisPanelProvider";
 import { ResumeReviewProvider } from "@/frontend/components/resume/ResumeReviewProvider";
 import { ThemeProvider } from "@/frontend/components/ui/ThemeProvider";
@@ -22,6 +23,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <AnalysisPanelProvider>
             <ResumeReviewProvider>
               <Navigation />
+              <UpdateBanner />
               <main className="pt-16 min-h-screen">{children}</main>
               <Toaster />
             </ResumeReviewProvider>
