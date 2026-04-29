@@ -22,7 +22,7 @@ _read_model() {
       if [[ -n "$val" ]]; then echo "$val"; return; fi
     fi
   done
-  echo "mistral:7b"
+  echo "gpt-oss:120b-cloud"
 }
 OLLAMA_MODEL="$(_read_model)"
 DB_NAME="job_assistant"
@@ -187,7 +187,6 @@ OLLAMA_BASE_URL="http://localhost:${OLLAMA_PORT}/v1"
 OLLAMA_MODEL="${OLLAMA_MODEL}"
 SCRAPER_SERVICE_URL="http://localhost:${SCRAPER_PORT}"
 NEXT_PUBLIC_APP_URL="http://localhost:${APP_PORT}"
-DEMO_USER_ID="demo-user-1"
 EOF
       warn ".env.local created — Ollama must be running to enable AI features"
     fi
@@ -353,6 +352,53 @@ echo -e "${CYAN}║   JobAssist AI — starting up…                ║${NC}"
 echo -e "${CYAN}╚══════════════════════════════════════════════╝${NC}"
 echo ""
 
+# ═══════════════════════════════════════════════════════════════
+#  AUTO-UPDATE
+# ═══════════════════════════════════════════════════════════════
+
+check_for_updates() {
+  if ! command -v git &>/dev/null; then return; fi
+  if [[ ! -d "$SCRIPT_DIR/.git" ]]; then return; fi
+
+  info "Checking for updates…"
+
+  # Fetch with a 10s timeout so a slow connection doesn't delay startup
+  if ! timeout 10 git -C "$SCRIPT_DIR" fetch origin main --quiet 2>/dev/null; then
+    warn "Could not reach GitHub — skipping update check"
+    return
+  fi
+
+  LOCAL=$(git -C "$SCRIPT_DIR" rev-parse HEAD 2>/dev/null)
+  REMOTE=$(git -C "$SCRIPT_DIR" rev-parse origin/main 2>/dev/null)
+
+  if [[ "$LOCAL" == "$REMOTE" ]]; then
+    success "Already up to date"
+    return
+  fi
+
+  info "New version available — updating…"
+
+  # Stash any accidental local changes so they don't block the pull
+  git -C "$SCRIPT_DIR" stash push -m "auto-stash $(date)" --quiet 2>/dev/null || true
+
+  if ! git -C "$SCRIPT_DIR" pull origin main --quiet 2>/dev/null; then
+    warn "Auto-update failed — continuing with current version"
+    return
+  fi
+
+  # Re-install npm packages only if package.json actually changed
+  if git -C "$SCRIPT_DIR" diff HEAD@{1} HEAD --name-only 2>/dev/null | grep -qE 'package\.json|package-lock\.json'; then
+    info "New packages detected — installing…"
+    npm --prefix "$SCRIPT_DIR" install --quiet 2>/dev/null || true
+  fi
+
+  # Apply any new database migrations
+  npx --prefix "$SCRIPT_DIR" prisma migrate deploy 2>/dev/null || true
+
+  success "Updated to latest version!"
+}
+
+check_for_updates
 install_deps
 setup_env
 setup_database
