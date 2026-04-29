@@ -297,6 +297,68 @@ print_done() {
   echo ""
 }
 
+create_update_shortcut() {
+  step "Creating the Update shortcut"
+
+  UPDATE_APP="/Applications/Update JobAssist AI.app"
+  rm -rf "$UPDATE_APP"
+  mkdir -p "$UPDATE_APP/Contents/MacOS"
+  mkdir -p "$UPDATE_APP/Contents/Resources"
+
+  cat > "$UPDATE_APP/Contents/Info.plist" << PLIST
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleExecutable</key>
+  <string>launcher</string>
+  <key>CFBundleIdentifier</key>
+  <string>com.jobassist.ai.update</string>
+  <key>CFBundleName</key>
+  <string>Update JobAssist AI</string>
+  <key>CFBundleDisplayName</key>
+  <string>Update JobAssist AI</string>
+  <key>CFBundleVersion</key>
+  <string>1.0.0</string>
+  <key>CFBundleShortVersionString</key>
+  <string>1.0</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>LSMinimumSystemVersion</key>
+  <string>12.0</string>
+  <key>NSHighResolutionCapable</key>
+  <true/>
+</dict>
+</plist>
+PLIST
+
+  cat > "$UPDATE_APP/Contents/MacOS/launcher" << UPDATE_LAUNCHER
+#!/bin/bash
+SCRIPT_DIR="$SCRIPT_DIR"
+
+if [[ ! -f "\$SCRIPT_DIR/update.sh" ]]; then
+  osascript -e 'display dialog "Could not find update.sh at: '"$SCRIPT_DIR"'\n\nPlease contact Ryan for help." buttons {"OK"} default button "OK" with title "Update JobAssist AI" with icon stop'
+  exit 1
+fi
+
+osascript << OSASCRIPT
+tell application "Terminal"
+  activate
+  set win to do script "cd \"\$SCRIPT_DIR\" && bash update.sh"
+  tell win
+    set custom title to "Update JobAssist AI"
+  end tell
+end tell
+OSASCRIPT
+UPDATE_LAUNCHER
+
+  chmod +x "$UPDATE_APP/Contents/MacOS/launcher"
+  touch "$UPDATE_APP"
+  /System/Library/Frameworks/CoreServices.framework/Versions/A/Frameworks/LaunchServices.framework/Versions/A/Support/lsregister -f "$UPDATE_APP" 2>/dev/null || true
+
+  ok "\"Update JobAssist AI\" created in /Applications!"
+}
+
 # ── RUN ──────────────────────────────────────────────────────
 say_hello
 check_macos
@@ -308,4 +370,5 @@ install_ollama
 download_ai_model
 install_app_deps
 create_app_shortcut
+create_update_shortcut
 print_done
