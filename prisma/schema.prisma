@@ -27,6 +27,7 @@ model Job {
   salary      String?
   source      String
   url         String   @unique
+  postedAt    DateTime?
   createdAt   DateTime @default(now())
 
   swipes       Swipe[]

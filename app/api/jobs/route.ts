@@ -85,6 +85,7 @@ export async function POST(req: NextRequest) {
       salary: string;
       source: string;
       url: string;
+      date_posted: string | null;
     }> = await scraperRes.json();
 
     logger.debug("jobs/POST", "Scraper returned results", { count: scraped.length });
@@ -103,6 +104,7 @@ export async function POST(req: NextRequest) {
             salary: job.salary || null,
             source: job.source,
             url: job.url,
+            postedAt: job.date_posted ? new Date(job.date_posted) : null,
           },
           update: {},
         });

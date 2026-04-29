@@ -32,6 +32,7 @@ export interface Job {
   salary: string | null;
   source: string;
   url: string;
+  postedAt: string | null;
   createdAt: string;
   matchScore?: number;
   matchReasons?: string[];

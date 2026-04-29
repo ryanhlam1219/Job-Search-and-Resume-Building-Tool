@@ -22,6 +22,7 @@ interface Job {
   source: string;
   url: string;
   description: string | null;
+  postedAt: string | null;
   createdAt: string;
 }
 
@@ -366,7 +367,7 @@ export default function JobsPage() {
                       {selected.source}
                     </span>
                     <span className="flex items-center gap-1 text-gray-500 text-xs">
-                      <Calendar size={12} /> {timeAgo(selected.createdAt)}
+                      <Calendar size={12} /> {timeAgo(selected.postedAt ?? selected.createdAt)}
                     </span>
                   </div>
                 </div>

@@ -111,6 +111,7 @@ def normalize_job(row) -> dict:
         "salary": salary,
         "source": str(row.get("site", "unknown")),
         "url": str(row.get("job_url", "")) if pd.notna(row.get("job_url")) else None,
+        "date_posted": str(row["date_posted"]) if pd.notna(row.get("date_posted")) else None,
     }
 
 @app.route("/health", methods=["GET"])
