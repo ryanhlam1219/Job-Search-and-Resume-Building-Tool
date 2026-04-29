@@ -44,7 +44,8 @@ if ! git diff --quiet 2>/dev/null; then
   git stash push -m "update.sh auto-stash $(date)" 2>/dev/null || true
 fi
 
-git pull origin main 2>&1 || die "Could not reach GitHub. Check your internet connection and try again."
+REMOTE=$(git remote | head -1)
+git pull "$REMOTE" main 2>&1 || die "Could not reach GitHub. Check your internet connection and try again."
 ok "Code updated to latest version!"
 
 # ── Step 2: Install new dependencies ─────────────────────────
