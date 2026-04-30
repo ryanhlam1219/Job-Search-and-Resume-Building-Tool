@@ -300,8 +300,17 @@ start_services() {
   # Pull the model if not already present
   if ! ollama list 2>/dev/null | grep -q "^${OLLAMA_MODEL}"; then
     info "Pulling Ollama model '${OLLAMA_MODEL}' (this may take a few minutes)…"
-    ollama pull "${OLLAMA_MODEL}"
-    success "Model '${OLLAMA_MODEL}' ready"
+    if ! ollama pull "${OLLAMA_MODEL}" 2>/dev/null; then
+      if [[ "${OLLAMA_MODEL}" == *":cloud"* ]]; then
+        warn "Cloud model pull failed — you may need to run 'ollama login' first."
+        warn "Run: ollama login    (opens a browser, free account at ollama.com)"
+        warn "Then restart with: ./start.sh"
+      else
+        warn "Failed to pull model '${OLLAMA_MODEL}' — AI features may not work."
+      fi
+    else
+      success "Model '${OLLAMA_MODEL}' ready"
+    fi
   else
     success "Ollama model '${OLLAMA_MODEL}' already present"
   fi

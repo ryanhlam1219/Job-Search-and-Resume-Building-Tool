@@ -149,26 +149,70 @@ install_ollama() {
 }
 
 download_ai_model() {
-  step "Step 6/7 — Downloading AI model (deepseek-v4-flash:cloud)"
+  step "Step 6/7 — AI model setup"
   echo ""
-  echo -e "  ${YELLOW}This may take a few minutes depending on your connection.${NC}"
-  echo "  The progress bar will appear below. Just let it run!"
-  echo "  ☕ Good time for a coffee break."
+  echo -e "  ${CYAN}JobAssist AI needs an AI model to power resume parsing, job matching,${NC}"
+  echo -e "  ${CYAN}and analysis. You have two options:${NC}"
+  echo ""
+  echo -e "  ${GREEN}[1] Cloud model (recommended)${NC}"
+  echo -e "      Uses Ollama cloud — faster, smarter, better quality."
+  echo -e "      Requires a free account at https://ollama.com (takes 30 seconds)."
+  echo ""
+  echo -e "  ${YELLOW}[2] Local model${NC}"
+  echo -e "      Runs entirely on your computer — no account needed."
+  echo -e "      Slower and less accurate, but works completely offline."
   echo ""
 
-  # Start ollama serve temporarily to pull the model
+  local choice
+  while true; do
+    read -rp "  Enter 1 or 2: " choice
+    case "$choice" in
+      1) break ;;
+      2) break ;;
+      *) echo -e "  ${RED}Please enter 1 or 2.${NC}" ;;
+    esac
+  done
+
+  echo ""
+
+  # Start ollama serve temporarily
+  OLLAMA_PID=""
   if ! curl -s http://localhost:11434/ &>/dev/null; then
     ollama serve &>/tmp/ollama_setup.log &
     OLLAMA_PID=$!
     sleep 3
   fi
 
-  ollama pull llama3.2 || die "Failed to download the AI model. Check your internet connection."
+  if [[ "$choice" == "1" ]]; then
+    info "Opening Ollama login — a browser window will open. Sign up or log in, then come back here."
+    echo ""
+    ollama login || die "Ollama login failed. Try again or choose option 2 (local model)."
+    echo ""
+    info "Downloading cloud model deepseek-v4-flash:cloud…"
+    echo -e "  ${YELLOW}This may take a minute depending on your connection.${NC}"
+    ollama pull deepseek-v4-flash:cloud || die "Failed to pull cloud model. Make sure you're logged in and try again."
+    # Write to .env.local so this choice persists
+    if [[ -f "$SCRIPT_DIR/.env.local" ]]; then
+      sed -i '' 's/^OLLAMA_MODEL=.*/OLLAMA_MODEL="deepseek-v4-flash:cloud"/' "$SCRIPT_DIR/.env.local"
+    else
+      echo 'OLLAMA_MODEL="deepseek-v4-flash:cloud"' >> "$SCRIPT_DIR/.env.local"
+    fi
+    ok "Cloud model ready! Using deepseek-v4-flash:cloud"
+  else
+    info "Downloading local model llama3.2 (~2GB)…"
+    echo -e "  ${YELLOW}This may take a few minutes. ☕ Good time for a coffee break.${NC}"
+    ollama pull llama3.2 || die "Failed to download the AI model. Check your internet connection."
+    # Write to .env.local so this choice persists
+    if [[ -f "$SCRIPT_DIR/.env.local" ]]; then
+      sed -i '' 's/^OLLAMA_MODEL=.*/OLLAMA_MODEL="llama3.2"/' "$SCRIPT_DIR/.env.local"
+    else
+      echo 'OLLAMA_MODEL="llama3.2"' >> "$SCRIPT_DIR/.env.local"
+    fi
+    ok "Local model ready! Using llama3.2"
+  fi
 
   # Kill temp ollama if we started it
-  kill "$OLLAMA_PID" 2>/dev/null || true
-
-  ok "AI model downloaded!"
+  [[ -n "$OLLAMA_PID" ]] && kill "$OLLAMA_PID" 2>/dev/null || true
 }
 
 install_app_deps() {
