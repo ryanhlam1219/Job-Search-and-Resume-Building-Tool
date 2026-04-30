@@ -188,13 +188,24 @@ install_app_deps() {
     die "Could not find a Python 3 installation. Please install Python 3 and try again."
   fi
 
+  # Delete broken venv if it exists but has no python binary
+  if [[ -d "$VENV_DIR" && ! -f "$VENV_DIR/bin/python" && ! -f "$VENV_DIR/bin/python3" ]]; then
+    warn "Removing broken virtual environment, recreating..."
+    rm -rf "$VENV_DIR"
+  fi
+
   if [[ ! -d "$VENV_DIR" ]]; then
     info "Creating Python virtual environment using $PYTHON_BIN..."
     "$PYTHON_BIN" -m venv "$VENV_DIR" || die "Failed to create Python virtual environment. Try running: $PYTHON_BIN -m venv $VENV_DIR"
   fi
 
-  "$VENV_DIR/bin/python" -m pip install --upgrade pip -q
-  "$VENV_DIR/bin/python" -m pip install -r "$SCRIPT_DIR/backend/scraper/requirements.txt" -q
+  # Use whichever python binary the venv created
+  VENV_PYTHON="$VENV_DIR/bin/python"
+  [[ ! -f "$VENV_PYTHON" ]] && VENV_PYTHON="$VENV_DIR/bin/python3"
+  [[ ! -f "$VENV_PYTHON" ]] && die "Virtual environment was created but has no python binary. Try deleting backend/scraper/.venv and running setup again."
+
+  "$VENV_PYTHON" -m pip install --upgrade pip -q
+  "$VENV_PYTHON" -m pip install -r "$SCRIPT_DIR/backend/scraper/requirements.txt" -q
   touch "$VENV_DIR/.installed"
   ok "Job scraper dependencies installed!"
 }

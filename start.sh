@@ -309,10 +309,17 @@ start_services() {
   # ── Python scraper ──────────────────────────────────────
   SCRAPER_DIR="$SCRIPT_DIR/backend/scraper"
   VENV_PYTHON="$SCRAPER_DIR/.venv/bin/python"
+  [[ ! -f "$VENV_PYTHON" ]] && VENV_PYTHON="$SCRAPER_DIR/.venv/bin/python3"
+  if [[ ! -f "$VENV_PYTHON" ]]; then
+    warn "Python venv not found — run ./setup.sh first to install scraper dependencies"
+    VENV_PYTHON=""
+  fi
   info "Starting Python scraper on port ${SCRAPER_PORT}…"
-  "$VENV_PYTHON" "$SCRAPER_DIR/app.py" \
-    >"$LOG_DIR/scraper.log" 2>&1 &
-  echo $! > "$PID_DIR/scraper.pid"
+  if [[ -n "$VENV_PYTHON" ]]; then
+    "$VENV_PYTHON" "$SCRAPER_DIR/app.py" \
+      >"$LOG_DIR/scraper.log" 2>&1 &
+    echo $! > "$PID_DIR/scraper.pid"
+  fi
   # Wait briefly to confirm it started
   sleep 2
   if kill -0 "$(cat "$PID_DIR/scraper.pid")" 2>/dev/null; then
