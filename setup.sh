@@ -181,11 +181,16 @@ install_app_deps() {
   ok "Web app packages installed!"
 
   info "Setting up Python environment for job scraper..."
-  PYTHON_BIN="$(command -v python3.11 || command -v python3)"
+  PYTHON_BIN="$(command -v python3.11 || command -v python3.12 || command -v python3.13 || command -v python3.14 || command -v python3)"
   VENV_DIR="$SCRIPT_DIR/backend/scraper/.venv"
 
+  if [[ -z "$PYTHON_BIN" ]]; then
+    die "Could not find a Python 3 installation. Please install Python 3 and try again."
+  fi
+
   if [[ ! -d "$VENV_DIR" ]]; then
-    "$PYTHON_BIN" -m venv "$VENV_DIR"
+    info "Creating Python virtual environment using $PYTHON_BIN..."
+    "$PYTHON_BIN" -m venv "$VENV_DIR" || die "Failed to create Python virtual environment. Try running: $PYTHON_BIN -m venv $VENV_DIR"
   fi
 
   "$VENV_DIR/bin/python" -m pip install --upgrade pip -q

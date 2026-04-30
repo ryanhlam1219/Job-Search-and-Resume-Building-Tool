@@ -122,7 +122,7 @@ install_deps() {
     success "Python already installed ($(python3 --version))"
   fi
 
-  PYTHON_BIN="$(command -v python3.11 || command -v python3)"
+  PYTHON_BIN="$(command -v python3.11 || command -v python3.12 || command -v python3.13 || command -v python3.14 || command -v python3)"
 
   # ── pip / venv ────────────────────────────────────────────
   if ! "$PYTHON_BIN" -m pip --version &>/dev/null; then
