@@ -378,16 +378,23 @@ check_for_updates() {
   if ! command -v git &>/dev/null; then return; fi
   if [[ ! -d "$SCRIPT_DIR/.git" ]]; then return; fi
 
+  # Resolve the remote name dynamically (may be 'origin', 'job-assistant', etc.)
+  GIT_REMOTE=$(git -C "$SCRIPT_DIR" remote | head -1)
+  if [[ -z "$GIT_REMOTE" ]]; then
+    warn "No git remote configured — skipping update check"
+    return
+  fi
+
   info "Checking for updates…"
 
   # Fetch with a 10s timeout so a slow connection doesn't delay startup
-  if ! timeout 10 git -C "$SCRIPT_DIR" fetch origin main --quiet 2>/dev/null; then
+  if ! timeout 10 git -C "$SCRIPT_DIR" fetch "$GIT_REMOTE" main --quiet 2>/dev/null; then
     warn "Could not reach GitHub — skipping update check"
     return
   fi
 
   LOCAL=$(git -C "$SCRIPT_DIR" rev-parse HEAD 2>/dev/null)
-  REMOTE=$(git -C "$SCRIPT_DIR" rev-parse origin/main 2>/dev/null)
+  REMOTE=$(git -C "$SCRIPT_DIR" rev-parse "$GIT_REMOTE/main" 2>/dev/null)
 
   if [[ "$LOCAL" == "$REMOTE" ]]; then
     success "Already up to date"
@@ -399,7 +406,7 @@ check_for_updates() {
   # Stash any accidental local changes so they don't block the pull
   git -C "$SCRIPT_DIR" stash push -m "auto-stash $(date)" --quiet 2>/dev/null || true
 
-  if ! git -C "$SCRIPT_DIR" pull origin main --quiet 2>/dev/null; then
+  if ! git -C "$SCRIPT_DIR" pull "$GIT_REMOTE" main --quiet 2>/dev/null; then
     warn "Auto-update failed — continuing with current version"
     return
   fi

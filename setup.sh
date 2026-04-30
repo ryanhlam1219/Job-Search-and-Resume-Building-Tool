@@ -278,18 +278,35 @@ if [[ ! -f "\$SCRIPT_DIR/start.sh" ]]; then
   exit 1
 fi
 
-# Run start.sh silently in background
-bash "\$SCRIPT_DIR/start.sh" > /tmp/jobassist_launch.log 2>&1 &
+# Already running? Just open the browser.
+if curl -s http://localhost:3000 >/dev/null 2>&1; then
+  open "http://localhost:3000"
+  exit 0
+fi
+
+# Open a minimized Terminal window to run start.sh (ensures proper process group / pty)
+osascript << 'APPLESCRIPT'
+tell application "Terminal"
+  set win to do script "cd \"SCRIPT_DIR_PLACEHOLDER\" && bash start.sh; exit"
+  tell win to set miniaturized to true
+end tell
+APPLESCRIPT
 
 # Poll until Next.js is ready (up to 90s), then open browser exactly once
 for i in \$(seq 1 90); do
   if curl -s http://localhost:3000 >/dev/null 2>&1; then
     open "http://localhost:3000"
-    break
+    exit 0
   fi
   sleep 1
 done
+
+# Timed out — surface the Terminal so the user can see what went wrong
+osascript -e 'tell application "Terminal" to activate'
 LAUNCHER_SCRIPT
+
+  # Substitute the real SCRIPT_DIR into the heredoc placeholder
+  sed -i '' "s|SCRIPT_DIR_PLACEHOLDER|$SCRIPT_DIR|g" "$APP/Contents/MacOS/launcher"
 
   chmod +x "$APP/Contents/MacOS/launcher"
 
