@@ -2,7 +2,7 @@ import OpenAI from "openai";
 
 const OLLAMA_BASE_URL =
   process.env.OLLAMA_BASE_URL ?? "http://localhost:11434/v1";
-const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? "deepseek-v4-flash:cloud";
+const OLLAMA_MODEL = process.env.OLLAMA_MODEL ?? "llama3.2";
 
 let _client: OpenAI | null = null;
 

@@ -22,7 +22,7 @@ _read_model() {
       if [[ -n "$val" ]]; then echo "$val"; return; fi
     fi
   done
-  echo "deepseek-v4-flash:cloud"
+  echo "llama3.2"
 }
 OLLAMA_MODEL="$(_read_model)"
 DB_NAME="job_assistant"

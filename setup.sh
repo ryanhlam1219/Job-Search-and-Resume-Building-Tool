@@ -163,7 +163,7 @@ download_ai_model() {
     sleep 3
   fi
 
-  ollama pull deepseek-v4-flash:cloud || die "Failed to download the AI model. Check your internet connection."
+  ollama pull llama3.2 || die "Failed to download the AI model. Check your internet connection."
 
   # Kill temp ollama if we started it
   kill "$OLLAMA_PID" 2>/dev/null || true
