@@ -149,7 +149,7 @@ install_ollama() {
 }
 
 download_ai_model() {
-  step "Step 6/7 — Downloading AI model (gpt-oss:120b-cloud)"
+  step "Step 6/7 — Downloading AI model (deepseek-v4-flash:cloud)"
   echo ""
   echo -e "  ${YELLOW}This may take a few minutes depending on your connection.${NC}"
   echo "  The progress bar will appear below. Just let it run!"
@@ -163,7 +163,7 @@ download_ai_model() {
     sleep 3
   fi
 
-  ollama pull gpt-oss:120b-cloud || die "Failed to download the AI model. Check your internet connection."
+  ollama pull deepseek-v4-flash:cloud || die "Failed to download the AI model. Check your internet connection."
 
   # Kill temp ollama if we started it
   kill "$OLLAMA_PID" 2>/dev/null || true
