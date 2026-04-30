@@ -39,9 +39,14 @@ export async function callOpenAI<T>(
 
       const content = response.choices[0].message.content;
       if (!content) throw new Error("Empty response from Ollama");
-      // Strip markdown code fences some models add despite json_object mode
-      const cleaned = content.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "").trim();
-      return JSON.parse(cleaned) as T;
+      // Strip markdown code fences — models often wrap JSON in ```json ... ``` blocks
+      const cleaned = content
+        .replace(/^[\s\S]*?```(?:json)?\s*/i, "")  // remove everything up to and including opening fence
+        .replace(/\s*```[\s\S]*$/i, "")             // remove closing fence and anything after
+        .trim();
+      // If stripping produced empty string, the model didn't wrap — use original
+      const toParse = cleaned.startsWith("{") || cleaned.startsWith("[") ? cleaned : content.trim();
+      return JSON.parse(toParse) as T;
     } catch (err) {
       if (attempt === retries) throw err;
       await new Promise((r) => setTimeout(r, 500 * (attempt + 1)));
