@@ -323,18 +323,23 @@ start_services() {
     warn "Python venv not found — run ./setup.sh first to install scraper dependencies"
     VENV_PYTHON=""
   fi
-  info "Starting Python scraper on port ${SCRAPER_PORT}…"
-  if [[ -n "$VENV_PYTHON" ]]; then
+  if curl -s "http://localhost:${SCRAPER_PORT}/health" >/dev/null 2>&1; then
+    success "Python scraper already running"
+  elif [[ -n "$VENV_PYTHON" ]]; then
+    info "Starting Python scraper on port ${SCRAPER_PORT}…"
     "$VENV_PYTHON" "$SCRAPER_DIR/app.py" \
       >"$LOG_DIR/scraper.log" 2>&1 &
     echo $! > "$PID_DIR/scraper.pid"
-  fi
-  # Wait briefly to confirm it started
-  sleep 2
-  if kill -0 "$(cat "$PID_DIR/scraper.pid")" 2>/dev/null; then
-    success "Scraper started (pid $(cat "$PID_DIR/scraper.pid")), log: .logs/scraper.log"
-  else
-    warn "Scraper may have failed to start — check .logs/scraper.log"
+    # Wait up to 8s for Flask to be ready
+    for i in $(seq 1 8); do
+      curl -s "http://localhost:${SCRAPER_PORT}/health" >/dev/null 2>&1 && break
+      sleep 1
+    done
+    if curl -s "http://localhost:${SCRAPER_PORT}/health" >/dev/null 2>&1; then
+      success "Scraper started (pid $(cat "$PID_DIR/scraper.pid")), log: .logs/scraper.log"
+    else
+      warn "Scraper may have failed to start — check .logs/scraper.log"
+    fi
   fi
 
   # ── Next.js app ─────────────────────────────────────────
@@ -397,7 +402,8 @@ check_for_updates() {
   info "Checking for updates…"
 
   # Fetch with a 10s timeout so a slow connection doesn't delay startup
-  if ! timeout 10 git -C "$SCRIPT_DIR" fetch "$GIT_REMOTE" main --quiet 2>/dev/null; then
+  # Use git's built-in http timeout (works on macOS without GNU coreutils)
+  if ! git -C "$SCRIPT_DIR" -c http.connectTimeout=10 -c http.lowSpeedLimit=0 -c http.lowSpeedTime=10 fetch "$GIT_REMOTE" main --quiet 2>/dev/null; then
     warn "Could not reach GitHub — skipping update check"
     return
   fi
