@@ -180,6 +180,17 @@ install_app_deps() {
   npm install --quiet || die "npm install failed."
   ok "Web app packages installed!"
 
+  info "Applying database migrations…"
+  # Start postgres temporarily if not running
+  if ! pg_isready -q 2>/dev/null; then
+    brew services start postgresql@16 2>/dev/null || brew services start postgresql 2>/dev/null || true
+    sleep 3
+  fi
+  export DATABASE_URL="postgresql://jobassist:jobassist@localhost:5432/jobassist"
+  npx prisma migrate deploy 2>/dev/null || warn "Migrations skipped (database may not be running yet — will apply on first launch)"
+  npx prisma generate --no-hints 2>/dev/null || npx prisma generate 2>/dev/null || true
+  ok "Database migrations applied!"
+
   info "Setting up Python environment for job scraper..."
   PYTHON_BIN="$(command -v python3.11 || command -v python3.12 || command -v python3.13 || command -v python3.14 || command -v python3)"
   VENV_DIR="$SCRIPT_DIR/backend/scraper/.venv"
@@ -267,18 +278,17 @@ if [[ ! -f "\$SCRIPT_DIR/start.sh" ]]; then
   exit 1
 fi
 
-osascript << OSASCRIPT
-tell application "Terminal"
-  activate
-  set win to do script "cd \"\$SCRIPT_DIR\" && bash start.sh && open http://localhost:3000"
-  tell win
-    set custom title to "JobAssist AI — Starting Up…"
-  end tell
-end tell
-OSASCRIPT
+# Run start.sh silently in background
+bash "\$SCRIPT_DIR/start.sh" > /tmp/jobassist_launch.log 2>&1 &
 
-sleep 12
-open "http://localhost:3000"
+# Poll until Next.js is ready (up to 90s), then open browser exactly once
+for i in \$(seq 1 90); do
+  if curl -s http://localhost:3000 >/dev/null 2>&1; then
+    open "http://localhost:3000"
+    break
+  fi
+  sleep 1
+done
 LAUNCHER_SCRIPT
 
   chmod +x "$APP/Contents/MacOS/launcher"
