@@ -4,6 +4,7 @@ import "@/frontend/styles/globals.css";
 import { Navigation } from "@/frontend/components/layout/Navigation";
 import { Toaster } from "@/frontend/components/ui/Toaster";
 import { UpdateBanner } from "@/frontend/components/ui/UpdateBanner";
+import { HeartbeatProvider } from "@/frontend/components/ui/HeartbeatProvider";
 import { AnalysisPanelProvider } from "@/frontend/components/jobs/AnalysisPanelProvider";
 import { ResumeReviewProvider } from "@/frontend/components/resume/ResumeReviewProvider";
 import { ThemeProvider } from "@/frontend/components/ui/ThemeProvider";
@@ -25,6 +26,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <ResumeReviewProvider>
               <Navigation />
               <UpdateBanner />
+              <HeartbeatProvider />
               <main className="pt-16 min-h-screen">{children}</main>
               <Toaster />
             </ResumeReviewProvider>

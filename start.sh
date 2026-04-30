@@ -42,7 +42,7 @@ error()   { echo -e "${RED}[error]${NC} $*" >&2; }
 stop_services() {
   info "Stopping JobAssist AI services…"
 
-  for svc in next scraper ollama; do
+  for svc in next scraper ollama watcher; do
     PID_FILE="$PID_DIR/$svc.pid"
     if [[ -f "$PID_FILE" ]]; then
       PID=$(cat "$PID_FILE")
@@ -421,3 +421,41 @@ install_deps
 setup_env
 setup_database
 start_services
+
+# ═══════════════════════════════════════════════════════════════
+#  IDLE SHUTDOWN WATCHER
+#  Shuts down all services after 2 minutes with no browser activity.
+# ═══════════════════════════════════════════════════════════════
+HEARTBEAT_FILE="/tmp/jobassist_heartbeat"
+rm -f "$HEARTBEAT_FILE"
+
+(
+  # Wait for the first heartbeat (browser connected) — up to 3 minutes
+  for i in $(seq 1 36); do
+    [[ -f "$HEARTBEAT_FILE" ]] && break
+    sleep 5
+  done
+
+  if [[ ! -f "$HEARTBEAT_FILE" ]]; then
+    info "No browser activity detected after 3 minutes — shutting down"
+    stop_services
+  fi
+
+  # Monitor for idle: shut down after 2 minutes without a heartbeat
+  IDLE_SECONDS=120
+  while true; do
+    sleep 30
+    if [[ -f "$HEARTBEAT_FILE" ]]; then
+      LAST=$(date -r "$HEARTBEAT_FILE" +%s 2>/dev/null \
+             || stat -f %m "$HEARTBEAT_FILE" 2>/dev/null \
+             || echo 0)
+      NOW=$(date +%s)
+      AGE=$((NOW - LAST))
+      if [[ $AGE -gt $IDLE_SECONDS ]]; then
+        info "No browser activity for ${IDLE_SECONDS}s — shutting down"
+        stop_services
+      fi
+    fi
+  done
+) &
+echo $! > "$PID_DIR/watcher.pid"
