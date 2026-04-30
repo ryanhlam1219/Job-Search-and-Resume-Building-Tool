@@ -18,6 +18,7 @@ interface AnalysisPanelState {
   applied: boolean;
   chatOpen: boolean;
   chatHistory: ChatMessage[];
+  chatLoading: boolean;
 }
 
 const initialPanelState: AnalysisPanelState = {
@@ -30,6 +31,7 @@ const initialPanelState: AnalysisPanelState = {
   applied: false,
   chatOpen: false,
   chatHistory: [],
+  chatLoading: false,
 };
 
 type AnalysisPanelsState = Record<AnalysisPanelScope, AnalysisPanelState>;
@@ -45,6 +47,7 @@ interface AnalysisPanelContextValue {
   setApplied: (scope: AnalysisPanelScope, v: boolean) => void;
   setChatOpen: (scope: AnalysisPanelScope, v: boolean) => void;
   setChatHistory: (scope: AnalysisPanelScope, history: ChatMessage[]) => void;
+  setChatLoading: (scope: AnalysisPanelScope, v: boolean) => void;
 }
 
 const AnalysisPanelContext = createContext<AnalysisPanelContextValue | null>(null);
@@ -69,7 +72,9 @@ export function AnalysisPanelProvider({ children }: { children: React.ReactNode 
             error: null,
             expandedEdit: 0,
             applied: false,            chatOpen: false,
-            chatHistory: [],          }
+            chatHistory: [],
+            chatLoading: false,
+          }
         : {
             ...panel,
             job: nextJob,
@@ -193,6 +198,12 @@ export function AnalysisPanelProvider({ children }: { children: React.ReactNode 
           [scope]: { ...current[scope], chatHistory: history },
         }));
       },
+      setChatLoading: (scope: AnalysisPanelScope, v: boolean) => {
+        setPanels((current) => ({
+          ...current,
+          [scope]: { ...current[scope], chatLoading: v },
+        }));
+      },
     }),
     [panels]
   );
@@ -223,6 +234,7 @@ export function useAnalysisPanel() {
       setApplied: (v: boolean) => ctx.setApplied(scope, v),
       setChatOpen: (v: boolean) => ctx.setChatOpen(scope, v),
       setChatHistory: (history: ChatMessage[]) => ctx.setChatHistory(scope, history),
+      setChatLoading: (v: boolean) => ctx.setChatLoading(scope, v),
     };
   };
 }

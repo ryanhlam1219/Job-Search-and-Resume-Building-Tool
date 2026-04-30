@@ -120,18 +120,19 @@ export function AnalysisPanelContent({ scope }: { scope: AnalysisPanelScope }) {
     applied,
     chatOpen,
     chatHistory,
+    chatLoading,
     close,
     runAnalysis,
     setExpandedEdit,
     setApplied,
     setChatOpen,
     setChatHistory,
+    setChatLoading,
   } = panel(scope);
   const router = useRouter();
 
   // Chat input is still local (ephemeral typing state)
   const [chatInput, setChatInput] = useState("");
-  const [chatLoading, setChatLoading] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   // Active tab in results view
