@@ -188,16 +188,16 @@ download_ai_model() {
     echo ""
     ollama login || die "Ollama login failed. Try again or choose option 2 (local model)."
     echo ""
-    info "Downloading cloud model deepseek-v4-flash:cloud…"
+    info "Downloading cloud model deepseek-v3.1:671b-cloud…"
     echo -e "  ${YELLOW}This may take a minute depending on your connection.${NC}"
-    ollama pull deepseek-v4-flash:cloud || die "Failed to pull cloud model. Make sure you're logged in and try again."
+    ollama pull deepseek-v3.1:671b-cloud || die "Failed to pull cloud model. Make sure you're logged in and try again."
     # Write to .env.local so this choice persists
     if [[ -f "$SCRIPT_DIR/.env.local" ]]; then
-      sed -i '' 's/^OLLAMA_MODEL=.*/OLLAMA_MODEL="deepseek-v4-flash:cloud"/' "$SCRIPT_DIR/.env.local"
+      sed -i '' 's/^OLLAMA_MODEL=.*/OLLAMA_MODEL="deepseek-v3.1:671b-cloud"/' "$SCRIPT_DIR/.env.local"
     else
-      echo 'OLLAMA_MODEL="deepseek-v4-flash:cloud"' >> "$SCRIPT_DIR/.env.local"
+      echo 'OLLAMA_MODEL="deepseek-v3.1:671b-cloud"' >> "$SCRIPT_DIR/.env.local"
     fi
-    ok "Cloud model ready! Using deepseek-v4-flash:cloud"
+    ok "Cloud model ready! Using deepseek-v3.1:671b-cloud"
   else
     info "Downloading local model llama3.2 (~2GB)…"
     echo -e "  ${YELLOW}This may take a few minutes. ☕ Good time for a coffee break.${NC}"
