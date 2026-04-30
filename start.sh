@@ -252,15 +252,15 @@ setup_database() {
   export DATABASE_URL="postgresql://${DB_USER}:${DB_PASS}@localhost:${POSTGRES_PORT}/${DB_NAME}"
 
   info "Running Prisma migrations…"
-  if npx prisma migrate dev --name init --skip-generate 2>&1 | grep -q "already in sync\|No pending"; then
-    success "Database schema already up to date"
-  else
-    npx prisma generate --no-hints 2>/dev/null || npx prisma generate
+  npx prisma migrate deploy 2>/dev/null
+  MIGRATE_EXIT=$?
+  npx prisma generate --no-hints 2>/dev/null || npx prisma generate
+  if [[ $MIGRATE_EXIT -eq 0 ]]; then
     # Wipe the entire .next directory so Next.js recompiles against the new Prisma client.
-    # Only .next/cache is insufficient — Turbopack's dev cache (.next/dev/cache) also
-    # bundles the old client and will cause runtime errors if left behind.
     rm -rf "$SCRIPT_DIR/.next"
     success "Prisma migrations applied"
+  else
+    warn "Prisma migration failed — check database connection"
   fi
 
   # Seed if the User table is empty
