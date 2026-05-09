@@ -189,7 +189,11 @@ download_ai_model() {
   if ! curl -s http://localhost:11434/ &>/dev/null; then
     ollama serve &>/tmp/ollama_setup.log &
     OLLAMA_PID=$!
-    sleep 3
+    # Wait up to 15s for Ollama to be ready (consistent with start.sh)
+    for _i in $(seq 1 15); do
+      curl -s http://localhost:11434/ >/dev/null 2>&1 && break
+      sleep 1
+    done
   fi
 
   if [[ "$choice" == "1" ]]; then
