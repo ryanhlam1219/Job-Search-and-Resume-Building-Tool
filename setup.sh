@@ -137,6 +137,7 @@ install_postgres() {
   info "Installing PostgreSQL 16..."
   brew install postgresql@16 || die "PostgreSQL installation failed."
   brew link postgresql@16 --force 2>/dev/null || true
+  export PATH="/opt/homebrew/opt/postgresql@16/bin:/usr/local/opt/postgresql@16/bin:$PATH"
 
   ok "PostgreSQL installed!"
 }

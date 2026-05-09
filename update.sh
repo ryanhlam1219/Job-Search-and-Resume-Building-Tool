@@ -45,14 +45,23 @@ step "Step 1/4 — Pulling latest changes from GitHub"
 info "Downloading updates..."
 
 # Save any accidental local changes so they don't block the pull
-if ! git diff --quiet 2>/dev/null; then
+STASHED=false
+if ! git diff --quiet 2>/dev/null || ! git diff --cached --quiet 2>/dev/null; then
   warn "Found local changes — saving them temporarily..."
-  git stash push -m "update.sh auto-stash $(date)" 2>/dev/null || true
+  if git stash push -m "update.sh auto-stash $(date)" 2>/dev/null; then
+    STASHED=true
+  fi
 fi
 
 REMOTE=$(git remote | head -1)
 git pull "$REMOTE" main 2>&1 || die "Could not reach GitHub. Check your internet connection and try again."
 ok "Code updated to latest version!"
+
+# Restore any stashed local changes
+if [[ "$STASHED" == true ]]; then
+  info "Restoring your local changes..."
+  git stash pop 2>/dev/null || warn "Could not restore local changes — run: git stash pop"
+fi
 
 # ── Step 2: Install new dependencies ─────────────────────────
 step "Step 2/4 — Installing any new packages"
