@@ -3,8 +3,14 @@
 # JobAssist AI — Update Script
 # Run this whenever you want to get the latest version.
 # ============================================================
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+if [[ "$(uname)" != "Darwin" ]]; then
+  echo "Error: JobAssist AI only supports macOS." >&2
+  exit 1
+fi
 
 # ── colours ──────────────────────────────────────────────────
 GREEN='\033[0;32m'; YELLOW='\033[1;33m'; RED='\033[0;31m'

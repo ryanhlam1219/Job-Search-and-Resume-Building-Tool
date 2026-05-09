@@ -7,6 +7,11 @@
 # ============================================================
 set -euo pipefail
 
+if [[ "$(uname)" != "Darwin" ]]; then
+  echo "Error: JobAssist AI only supports macOS." >&2
+  exit 1
+fi
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PID_DIR="$SCRIPT_DIR/.pids"
 LOG_DIR="$SCRIPT_DIR/.logs"
@@ -385,11 +390,15 @@ start_services() {
   fi
 
   # ── Next.js app ─────────────────────────────────────────
-  info "Starting Next.js on port ${APP_PORT}…"
-  npm run dev -- --port "$APP_PORT" \
-    >"$LOG_DIR/next.log" 2>&1 &
-  echo $! > "$PID_DIR/next.pid"
-  disown $!  # detach so it survives terminal closure
+  if curl -s "http://localhost:${APP_PORT}" >/dev/null 2>&1; then
+    success "Next.js already running on port ${APP_PORT}"
+  else
+    info "Starting Next.js on port ${APP_PORT}…"
+    npm run dev -- --port "$APP_PORT" \
+      >"$LOG_DIR/next.log" 2>&1 &
+    echo $! > "$PID_DIR/next.pid"
+    disown $!  # detach so it survives terminal closure
+  fi
 
   # Wait for Next.js to be ready (up to 30s)
   info "Waiting for Next.js to be ready…"
