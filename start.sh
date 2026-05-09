@@ -472,11 +472,28 @@ check_for_updates() {
   # Re-install npm packages only if package.json actually changed
   if git -C "$SCRIPT_DIR" diff HEAD@{1} HEAD --name-only 2>/dev/null | grep -qE 'package\.json|package-lock\.json'; then
     info "New packages detected — installing…"
-    npm --prefix "$SCRIPT_DIR" install --quiet 2>/dev/null || true
+    npm --prefix "$SCRIPT_DIR" install --loglevel=error 2>/dev/null || true
   fi
 
-  # Apply any new database migrations
-  npx --prefix "$SCRIPT_DIR" prisma migrate deploy 2>/dev/null || true
+  # Re-install Python scraper deps if requirements.txt changed
+  if git -C "$SCRIPT_DIR" diff HEAD@{1} HEAD --name-only 2>/dev/null | grep -q 'requirements\.txt'; then
+    info "Python dependencies changed — reinstalling scraper packages…"
+    local _venv_py="$SCRIPT_DIR/backend/scraper/.venv/bin/python"
+    if [[ -f "$_venv_py" ]]; then
+      rm -f "$SCRIPT_DIR/backend/scraper/.venv/.installed"
+      SSL_CERT_FILE=/etc/ssl/cert.pem REQUESTS_CA_BUNDLE=/etc/ssl/cert.pem \
+      "$_venv_py" -m pip install --no-cache-dir -q \
+        --trusted-host pypi.org --trusted-host files.pythonhosted.org \
+        -r "$SCRIPT_DIR/backend/scraper/requirements.txt" 2>/dev/null \
+        && touch "$SCRIPT_DIR/backend/scraper/.venv/.installed" || true
+    fi
+  fi
+
+  # Apply any new database migrations, regenerate Prisma client, and clear build cache
+  if npx --prefix "$SCRIPT_DIR" prisma migrate deploy 2>/dev/null; then
+    npx --prefix "$SCRIPT_DIR" prisma generate --no-hints 2>/dev/null || true
+    rm -rf "$SCRIPT_DIR/.next"
+  fi
 
   success "Updated to latest version!"
 }

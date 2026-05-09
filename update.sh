@@ -51,7 +51,26 @@ ok "Code updated to latest version!"
 # ── Step 2: Install new dependencies ─────────────────────────
 step "Step 2/4 — Installing any new packages"
 info "Checking for new npm packages..."
-npm install --quiet || die "Package installation failed."
+npm install --loglevel=error || die "Package installation failed."
+
+# Update Python scraper deps if requirements.txt changed
+SCRAPER_DIR="$SCRIPT_DIR/backend/scraper"
+if git diff HEAD@{1} HEAD --name-only 2>/dev/null | grep -q 'requirements\.txt'; then
+  info "Python dependencies changed — reinstalling scraper packages…"
+  VENV_PY="$SCRAPER_DIR/.venv/bin/python"
+  if [[ -f "$VENV_PY" ]]; then
+    rm -f "$SCRAPER_DIR/.venv/.installed"
+    SSL_CERT_FILE=/etc/ssl/cert.pem REQUESTS_CA_BUNDLE=/etc/ssl/cert.pem \
+    "$VENV_PY" -m pip install --no-cache-dir -q \
+      --trusted-host pypi.org --trusted-host files.pythonhosted.org \
+      -r "$SCRAPER_DIR/requirements.txt" \
+      && touch "$SCRAPER_DIR/.venv/.installed" \
+      && ok "Python scraper dependencies updated!" \
+      || warn "Python dep update failed — check scraper manually"
+  else
+    warn "Python venv not found — run setup.sh to reinstall scraper dependencies"
+  fi
+fi
 ok "All packages up to date!"
 
 # ── Step 3: Apply database migrations ────────────────────────
@@ -66,6 +85,8 @@ if ! pg_isready -q 2>/dev/null; then
 fi
 
 if npx prisma migrate deploy 2>/dev/null; then
+  npx prisma generate --no-hints 2>/dev/null || npx prisma generate 2>/dev/null || true
+  rm -rf "$SCRIPT_DIR/.next"
   ok "Database schema up to date!"
 else
   warn "No new database migrations (or database not running — that's OK, it will apply on next launch)."
