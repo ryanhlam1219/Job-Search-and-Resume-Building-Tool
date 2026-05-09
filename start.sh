@@ -537,10 +537,9 @@ rm -f "$HEARTBEAT_FILE"
   fi
 
   # Monitor for idle: shut down after 2 minutes without a heartbeat.
-  # We capture our own PID so stop_services skips trying to kill us
-  # (we'll exit naturally after calling it).
+  # We remove our own PID file before calling stop_services so it
+  # doesn't try to kill this subshell while it's still running.
   IDLE_SECONDS=120
-  WATCHER_PID=$$
   while true; do
     sleep 30
     if [[ -f "$HEARTBEAT_FILE" ]]; then

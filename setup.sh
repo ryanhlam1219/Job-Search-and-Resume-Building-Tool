@@ -185,7 +185,7 @@ download_ai_model() {
   echo ""
 
   # Start ollama serve temporarily
-  OLLAMA_PID=""
+  local OLLAMA_PID=""
   if ! curl -s http://localhost:11434/ &>/dev/null; then
     ollama serve &>/tmp/ollama_setup.log &
     OLLAMA_PID=$!
