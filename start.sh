@@ -96,10 +96,11 @@ install_deps() {
   fi
 
   # ── Node.js ───────────────────────────────────────────────
-  if ! command -v node &>/dev/null || [[ $(node -e "process.exit(process.version.slice(1).split('.')[0] < 20 ? 1 : 0)" 2>/dev/null; echo $?) -ne 0 ]]; then
-    info "Installing Node.js 20 via Homebrew…"
-    brew install node@20
-    brew link node@20 --force --overwrite
+  if ! command -v node &>/dev/null || [[ $(node -e "process.exit(process.version.slice(1).split('.')[0] < 22 ? 1 : 0)" 2>/dev/null; echo $?) -ne 0 ]]; then
+    info "Installing Node.js 22 via Homebrew…"
+    brew install node@22
+    brew link node@22 --force --overwrite
+    export PATH="/opt/homebrew/opt/node@22/bin:/usr/local/opt/node@22/bin:$PATH"
   else
     success "Node.js already installed ($(node --version))"
   fi
@@ -107,27 +108,41 @@ install_deps() {
   # ── npm ───────────────────────────────────────────────────
   if ! command -v npm &>/dev/null; then
     info "npm not found — reinstalling Node…"
-    brew reinstall node@20
-    brew link node@20 --force --overwrite
+    brew reinstall node@22
+    brew link node@22 --force --overwrite
+    export PATH="/opt/homebrew/opt/node@22/bin:/usr/local/opt/node@22/bin:$PATH"
   else
     success "npm already installed ($(npm --version))"
   fi
 
   # ── Python 3.11 ───────────────────────────────────────────
-  if ! command -v python3 &>/dev/null || ! python3 -c "import sys; sys.exit(0 if sys.version_info >= (3,11) else 1)" 2>/dev/null; then
+  # Check for python3.11 specifically — a newer system python (e.g. 3.14
+  # installed as an Ollama dependency) is NOT a substitute because the venv
+  # is pinned to 3.11.
+  if ! command -v python3.11 &>/dev/null && [[ ! -x /opt/homebrew/bin/python3.11 ]]; then
     info "Installing Python 3.11 via Homebrew…"
     brew install python@3.11
     brew link python@3.11 --force --overwrite
   else
-    success "Python already installed ($(python3 --version))"
+    success "Python 3.11 already installed"
   fi
+  export PATH="/opt/homebrew/opt/python@3.11/bin:/usr/local/opt/python@3.11/bin:$PATH"
 
-  PYTHON_BIN="$(command -v python3.11 || command -v python3.12 || command -v python3.13 || command -v python3.14 || command -v python3)"
+  # Resolve PYTHON_BIN to python3.11 explicitly
+  local PYTHON_BIN=""
+  for _py in python3.11 /opt/homebrew/bin/python3.11 /usr/local/bin/python3.11 \
+              /opt/homebrew/opt/python@3.11/bin/python3.11; do
+    if command -v "$_py" &>/dev/null || [[ -x "$_py" ]]; then
+      PYTHON_BIN="$(command -v "$_py" 2>/dev/null || echo "$_py")"
+      break
+    fi
+  done
+  [[ -z "$PYTHON_BIN" ]] && { error "Could not find Python 3.11 — run ./setup.sh first."; exit 1; }
 
   # ── pip / venv ────────────────────────────────────────────
   if ! "$PYTHON_BIN" -m pip --version &>/dev/null; then
     info "Installing pip…"
-    "$PYTHON_BIN" -m ensurepip --upgrade
+    "$PYTHON_BIN" -m ensurepip --upgrade || true
   else
     success "pip already installed"
   fi
@@ -137,6 +152,7 @@ install_deps() {
     info "Installing PostgreSQL 16 via Homebrew…"
     brew install postgresql@16
     brew link postgresql@16 --force
+    export PATH="/opt/homebrew/opt/postgresql@16/bin:/usr/local/opt/postgresql@16/bin:$PATH"
   else
     success "PostgreSQL already installed ($(psql --version))"
   fi
@@ -153,7 +169,7 @@ install_deps() {
   cd "$SCRIPT_DIR"
   if [[ ! -d node_modules ]]; then
     info "Installing Node.js dependencies…"
-    npm install
+    npm install --loglevel=error
   else
     success "node_modules already present"
   fi
@@ -166,10 +182,30 @@ install_deps() {
     "$PYTHON_BIN" -m venv "$VENV_DIR"
   fi
   VENV_PYTHON="$VENV_DIR/bin/python"
+
+  # Fix pip SSL / truststore bug on fresh macOS Python builds:
+  # pip's vendored certifi and the runtime certifi used by jobspy/LinkedIn
+  # may both ship without their cacert.pem. Copy the macOS system bundle.
+  local SYSTEM_CERT="/etc/ssl/cert.pem"
+  if [[ -f "$SYSTEM_CERT" ]]; then
+    export SSL_CERT_FILE="$SYSTEM_CERT"
+    export REQUESTS_CA_BUNDLE="$SYSTEM_CERT"
+    for _certifi_dir in \
+      "$("$VENV_PYTHON" -c 'import pip._vendor.certifi as c, os; print(os.path.dirname(c.__file__))' 2>/dev/null)" \
+      "$("$VENV_PYTHON" -c 'import certifi, os; print(os.path.dirname(certifi.__file__))' 2>/dev/null)"; do
+      if [[ -n "$_certifi_dir" && -d "$_certifi_dir" && ! -f "$_certifi_dir/cacert.pem" ]]; then
+        cp "$SYSTEM_CERT" "$_certifi_dir/cacert.pem"
+      fi
+    done
+  fi
+
   if [[ ! -f "$VENV_DIR/.installed" ]]; then
     info "Installing Python scraper dependencies…"
-    "$VENV_PYTHON" -m pip install --upgrade pip -q
-    "$VENV_PYTHON" -m pip install -r "$SCRAPER_DIR/requirements.txt" -q
+    "$VENV_PYTHON" -m pip install --upgrade pip --no-cache-dir -q \
+      --trusted-host pypi.org --trusted-host files.pythonhosted.org --trusted-host pypi.python.org
+    "$VENV_PYTHON" -m pip install --no-cache-dir -q \
+      --trusted-host pypi.org --trusted-host files.pythonhosted.org --trusted-host pypi.python.org \
+      -r "$SCRAPER_DIR/requirements.txt"
     touch "$VENV_DIR/.installed"
     success "Python dependencies installed"
   else
