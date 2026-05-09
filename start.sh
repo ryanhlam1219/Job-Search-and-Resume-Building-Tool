@@ -293,10 +293,8 @@ setup_database() {
   export DATABASE_URL="postgresql://${DB_USER}:${DB_PASS}@localhost:${POSTGRES_PORT}/${DB_NAME}"
 
   info "Running Prisma migrations…"
-  npx prisma migrate deploy 2>/dev/null
-  MIGRATE_EXIT=$?
-  npx prisma generate --no-hints 2>/dev/null || npx prisma generate
-  if [[ $MIGRATE_EXIT -eq 0 ]]; then
+  if npx prisma migrate deploy 2>/dev/null; then
+    npx prisma generate --no-hints 2>/dev/null || npx prisma generate 2>/dev/null || true
     # Wipe the entire .next directory so Next.js recompiles against the new Prisma client.
     rm -rf "$SCRIPT_DIR/.next"
     success "Prisma migrations applied"
