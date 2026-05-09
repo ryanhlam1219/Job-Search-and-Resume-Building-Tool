@@ -469,12 +469,18 @@ check_for_updates() {
   info "New version available — updating…"
 
   # Stash any accidental local changes so they don't block the pull
-  git -C "$SCRIPT_DIR" stash push -m "auto-stash $(date)" --quiet 2>/dev/null || true
+  local _stashed=false
+  if ! git -C "$SCRIPT_DIR" diff --quiet 2>/dev/null || ! git -C "$SCRIPT_DIR" diff --cached --quiet 2>/dev/null; then
+    git -C "$SCRIPT_DIR" stash push -m "auto-stash $(date)" --quiet 2>/dev/null && _stashed=true || true
+  fi
 
   if ! git -C "$SCRIPT_DIR" pull "$GIT_REMOTE" main --quiet 2>/dev/null; then
     warn "Auto-update failed — continuing with current version"
+    [[ "$_stashed" == true ]] && git -C "$SCRIPT_DIR" stash pop --quiet 2>/dev/null || true
     return
   fi
+
+  [[ "$_stashed" == true ]] && git -C "$SCRIPT_DIR" stash pop --quiet 2>/dev/null || true
 
   # Re-install npm packages only if package.json actually changed
   if git -C "$SCRIPT_DIR" diff HEAD@{1} HEAD --name-only 2>/dev/null | grep -qE 'package\.json|package-lock\.json'; then
