@@ -96,7 +96,7 @@ info "Running any new database migrations..."
 if ! pg_isready -q 2>/dev/null; then
   info "Starting database temporarily..."
   brew services start postgresql@16 2>/dev/null || brew services start postgresql 2>/dev/null || true
-  sleep 3
+  for _i in $(seq 1 15); do pg_isready -q 2>/dev/null && break; sleep 1; done
 fi
 
 if npx prisma migrate deploy 2>/dev/null; then

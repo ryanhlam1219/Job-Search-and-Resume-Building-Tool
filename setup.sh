@@ -4,6 +4,7 @@
 # Run this ONCE to install everything your computer needs.
 # After this, just double-click "JobAssist AI" in Applications.
 # ============================================================
+set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
@@ -398,9 +399,6 @@ create_app_shortcut() {
   # Copy icon if it exists
   if [[ -f "$SCRIPT_DIR/scripts/JobAssistAI.icns" ]]; then
     cp "$SCRIPT_DIR/scripts/JobAssistAI.icns" "$APP/Contents/Resources/AppIcon.icns"
-    ICON_KEY='<key>CFBundleIconFile</key><string>AppIcon</string>'
-  else
-    ICON_KEY=""
   fi
 
   cat > "$APP/Contents/Info.plist" << PLIST
