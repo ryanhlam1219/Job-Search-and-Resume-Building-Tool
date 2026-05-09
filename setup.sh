@@ -37,7 +37,7 @@ say_hello() {
   echo "  • Python     — needed for job scraping"
   echo "  • PostgreSQL — a database to store your jobs & resume"
   echo "  • Ollama     — runs the AI on your computer (no internet needed!)"
-  echo "  • llama3.2   — the AI language model (~2 GB download)"
+  echo "  • AI model   — cloud (fast, smart) or local (offline) — your choice!"
   echo ""
   echo -e "  ${YELLOW}Press Enter to continue, or Ctrl+C to cancel.${NC}"
   read -r
@@ -85,21 +85,21 @@ install_node() {
   if command -v node &>/dev/null; then
     NODE_VER=$(node --version)
     MAJOR=$(echo "$NODE_VER" | sed 's/v//' | cut -d. -f1)
-    if [[ "$MAJOR" -ge 20 ]]; then
+    if [[ "$MAJOR" -ge 22 ]]; then
       ok "Node.js $NODE_VER is already installed!"
       return
     fi
-    info "Upgrading Node.js from $NODE_VER to v20..."
+    info "Upgrading Node.js from $NODE_VER to v22..."
   else
     info "Installing Node.js..."
   fi
 
-  brew install node@20 || die "Node.js installation failed."
-  brew link node@20 --force --overwrite 2>/dev/null || true
+  brew install node@22 || die "Node.js installation failed."
+  brew link node@22 --force --overwrite 2>/dev/null || true
 
-  # Make sure it's on PATH
-  export PATH="/opt/homebrew/opt/node@20/bin:/usr/local/opt/node@20/bin:$PATH"
-  echo 'export PATH="/opt/homebrew/opt/node@20/bin:$PATH"' >> "$HOME/.zprofile"
+  # Make sure it's on PATH for the rest of this script
+  export PATH="/opt/homebrew/opt/node@22/bin:/usr/local/opt/node@22/bin:$PATH"
+  echo 'export PATH="/opt/homebrew/opt/node@22/bin:$PATH"' >> "$HOME/.zprofile"
 
   ok "Node.js $(node --version) installed!"
 }
@@ -107,14 +107,21 @@ install_node() {
 install_python() {
   step "Step 3/7 — Python (job scraper)"
 
-  if command -v python3 &>/dev/null && python3 -c "import sys; sys.exit(0 if sys.version_info >= (3,11) else 1)" 2>/dev/null; then
-    ok "Python $(python3 --version) is already installed!"
+  # Check for python3.11 specifically — a newer system python (e.g. 3.14 installed
+  # as an Ollama dependency) is NOT a substitute because we pin the venv to 3.11.
+  if command -v python3.11 &>/dev/null || [[ -x /opt/homebrew/bin/python3.11 ]]; then
+    PY311="$(command -v python3.11 2>/dev/null || echo /opt/homebrew/bin/python3.11)"
+    ok "Python $($PY311 --version 2>&1) is already installed!"
+    export PATH="/opt/homebrew/opt/python@3.11/bin:/usr/local/opt/python@3.11/bin:$PATH"
     return
   fi
 
   info "Installing Python 3.11..."
   brew install python@3.11 || die "Python installation failed."
   brew link python@3.11 --force --overwrite 2>/dev/null || true
+
+  # Add to PATH for the rest of this script
+  export PATH="/opt/homebrew/opt/python@3.11/bin:/usr/local/opt/python@3.11/bin:$PATH"
 
   ok "Python installed!"
 }
@@ -188,16 +195,16 @@ download_ai_model() {
     echo ""
     ollama login || die "Ollama login failed. Try again or choose option 2 (local model)."
     echo ""
-    info "Downloading cloud model deepseek-v3.1:671b-cloud…"
+    info "Downloading cloud model gemma4:31b-cloud…"
     echo -e "  ${YELLOW}This may take a minute depending on your connection.${NC}"
-    ollama pull deepseek-v3.1:671b-cloud || die "Failed to pull cloud model. Make sure you're logged in and try again."
+    ollama pull gemma4:31b-cloud || die "Failed to pull cloud model. Make sure you're logged in and try again."
     # Write to .env.local so this choice persists
     if [[ -f "$SCRIPT_DIR/.env.local" ]]; then
-      sed -i '' 's/^OLLAMA_MODEL=.*/OLLAMA_MODEL="deepseek-v3.1:671b-cloud"/' "$SCRIPT_DIR/.env.local"
+      sed -i '' 's/^OLLAMA_MODEL=.*/OLLAMA_MODEL="gemma4:31b-cloud"/' "$SCRIPT_DIR/.env.local"
     else
-      echo 'OLLAMA_MODEL="deepseek-v3.1:671b-cloud"' >> "$SCRIPT_DIR/.env.local"
+      echo 'OLLAMA_MODEL="gemma4:31b-cloud"' >> "$SCRIPT_DIR/.env.local"
     fi
-    ok "Cloud model ready! Using deepseek-v3.1:671b-cloud"
+    ok "Cloud model ready! Using gemma4:31b-cloud"
   else
     info "Downloading local model llama3.2 (~2GB)…"
     echo -e "  ${YELLOW}This may take a few minutes. ☕ Good time for a coffee break.${NC}"
@@ -211,6 +218,14 @@ download_ai_model() {
     ok "Local model ready! Using llama3.2"
   fi
 
+  # Always ensure the local fallback model is present, even when the cloud model
+  # was chosen. The app silently falls back to llama3.2 on 403/429 errors.
+  if ! ollama list 2>/dev/null | grep -q "^llama3.2"; then
+    info "Pulling local fallback model llama3.2 (~2GB)…"
+    ollama pull llama3.2 2>/dev/null \
+      || warn "Could not pull llama3.2 fallback — AI will only work when cloud quota is available."
+  fi
+
   # Kill temp ollama if we started it
   [[ -n "$OLLAMA_PID" ]] && kill "$OLLAMA_PID" 2>/dev/null || true
 }
@@ -220,48 +235,152 @@ install_app_deps() {
 
   cd "$SCRIPT_DIR"
 
+  # ── Node packages ──────────────────────────────────────────────────────────
   info "Installing web app packages..."
-  npm install --quiet || die "npm install failed."
+  # Use --loglevel=error to suppress engine/deprecation warnings that aren't failures
+  npm install --loglevel=error || die "npm install failed."
   ok "Web app packages installed!"
 
-  info "Applying database migrations…"
-  # Start postgres temporarily if not running
-  if ! pg_isready -q 2>/dev/null; then
-    brew services start postgresql@16 2>/dev/null || brew services start postgresql 2>/dev/null || true
-    sleep 3
+  # ── Environment file ───────────────────────────────────────────────────────
+  # download_ai_model() may have written OLLAMA_MODEL to .env.local already.
+  # Ensure ALL required keys are present by merging from .env.example.
+  if [[ ! -f "$SCRIPT_DIR/.env.local" ]]; then
+    if [[ -f "$SCRIPT_DIR/.env.example" ]]; then
+      cp "$SCRIPT_DIR/.env.example" "$SCRIPT_DIR/.env.local"
+    else
+      cat > "$SCRIPT_DIR/.env.local" <<'ENVEOF'
+DATABASE_URL="postgresql://postgres:password@localhost:5432/job_assistant"
+OLLAMA_BASE_URL="http://localhost:11434/v1"
+OLLAMA_MODEL="llama3.2"
+SCRAPER_SERVICE_URL="http://localhost:8000"
+NEXT_PUBLIC_APP_URL="http://localhost:3000"
+ENVEOF
+    fi
+  elif [[ -f "$SCRIPT_DIR/.env.example" ]]; then
+    # .env.local exists but may only contain OLLAMA_MODEL — fill in missing keys
+    while IFS= read -r line; do
+      KEY="$(echo "$line" | cut -d'=' -f1)"
+      [[ -z "$KEY" || "$KEY" == \#* ]] && continue
+      grep -q "^${KEY}=" "$SCRIPT_DIR/.env.local" 2>/dev/null || echo "$line" >> "$SCRIPT_DIR/.env.local"
+    done < "$SCRIPT_DIR/.env.example"
   fi
-  export DATABASE_URL="postgresql://jobassist:jobassist@localhost:5432/jobassist"
-  npx prisma migrate deploy 2>/dev/null || warn "Migrations skipped (database may not be running yet — will apply on first launch)"
-  npx prisma generate --no-hints 2>/dev/null || npx prisma generate 2>/dev/null || true
+
+  # ── Database ───────────────────────────────────────────────────────────────
+  info "Setting up database..."
+  local DB_USER="postgres" DB_PASS="password" DB_NAME="job_assistant"
+  local DATABASE_URL="postgresql://${DB_USER}:${DB_PASS}@localhost:5432/${DB_NAME}"
+
+  # Ensure DATABASE_URL in .env.local matches what start.sh expects
+  if grep -q '^DATABASE_URL=' "$SCRIPT_DIR/.env.local" 2>/dev/null; then
+    sed -i '' "s|^DATABASE_URL=.*|DATABASE_URL=\"${DATABASE_URL}\"|" "$SCRIPT_DIR/.env.local"
+  else
+    echo "DATABASE_URL=\"${DATABASE_URL}\"" >> "$SCRIPT_DIR/.env.local"
+  fi
+  export DATABASE_URL
+
+  # Start PostgreSQL if not running
+  if ! pg_isready -q 2>/dev/null; then
+    brew services start postgresql@16 2>/dev/null \
+      || brew services start postgresql 2>/dev/null || true
+    # Wait up to 20 s for it to be ready
+    for _i in $(seq 1 20); do pg_isready -q 2>/dev/null && break; sleep 1; done
+  fi
+
+  if pg_isready -q 2>/dev/null; then
+    # Create the 'postgres' superuser role if it doesn't exist
+    # (macOS Homebrew uses the system username as default superuser, not 'postgres')
+    if ! psql -d postgres -tAc "SELECT 1 FROM pg_roles WHERE rolname='${DB_USER}';" 2>/dev/null | grep -q 1; then
+      psql -d postgres -c \
+        "CREATE ROLE ${DB_USER} WITH SUPERUSER CREATEDB CREATEROLE LOGIN PASSWORD '${DB_PASS}';" \
+        2>/dev/null || true
+    fi
+    # Create database if it doesn't exist
+    if ! psql -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname='${DB_NAME}';" 2>/dev/null | grep -q 1; then
+      psql -d postgres -c "CREATE DATABASE ${DB_NAME} OWNER ${DB_USER};" 2>/dev/null || true
+    fi
+    if npx prisma migrate deploy 2>/dev/null; then
+      npx prisma generate --no-hints 2>/dev/null || npx prisma generate 2>/dev/null || true
+    else
+      warn "Migrations skipped (will apply on first launch)"
+    fi
+  else
+    warn "PostgreSQL not ready — database setup will complete on first launch"
+  fi
   ok "Database migrations applied!"
 
+  # ── Python venv ────────────────────────────────────────────────────────────
   info "Setting up Python environment for job scraper..."
-  PYTHON_BIN="$(command -v python3.11 || command -v python3.12 || command -v python3.13 || command -v python3.14 || command -v python3)"
-  VENV_DIR="$SCRIPT_DIR/backend/scraper/.venv"
 
-  if [[ -z "$PYTHON_BIN" ]]; then
-    die "Could not find a Python 3 installation. Please install Python 3 and try again."
-  fi
+  # Resolve python3.11 explicitly — do NOT fall back to a different minor version
+  # since the venv is pinned to 3.11.
+  local PYTHON_BIN=""
+  for _py in python3.11 /opt/homebrew/bin/python3.11 /usr/local/bin/python3.11 \
+              /opt/homebrew/opt/python@3.11/bin/python3.11; do
+    if command -v "$_py" &>/dev/null || [[ -x "$_py" ]]; then
+      PYTHON_BIN="$(command -v "$_py" 2>/dev/null || echo "$_py")"
+      break
+    fi
+  done
+  [[ -z "$PYTHON_BIN" ]] && die "Could not find Python 3.11. Please re-run setup from the beginning."
 
-  # Delete broken venv if it exists but has no python binary
-  if [[ -d "$VENV_DIR" && ! -f "$VENV_DIR/bin/python" && ! -f "$VENV_DIR/bin/python3" ]]; then
-    warn "Removing broken virtual environment, recreating..."
+  local VENV_DIR="$SCRIPT_DIR/backend/scraper/.venv"
+
+  # Remove incomplete venv (e.g. from a previously failed install run)
+  if [[ -d "$VENV_DIR" && ! -f "$VENV_DIR/.installed" ]]; then
+    warn "Previous Python environment was incomplete — recreating..."
     rm -rf "$VENV_DIR"
   fi
 
   if [[ ! -d "$VENV_DIR" ]]; then
     info "Creating Python virtual environment using $PYTHON_BIN..."
-    "$PYTHON_BIN" -m venv "$VENV_DIR" || die "Failed to create Python virtual environment. Try running: $PYTHON_BIN -m venv $VENV_DIR"
+    "$PYTHON_BIN" -m venv "$VENV_DIR" || die "Failed to create Python virtual environment."
   fi
 
-  # Use whichever python binary the venv created
-  VENV_PYTHON="$VENV_DIR/bin/python"
+  local VENV_PYTHON="$VENV_DIR/bin/python"
   [[ ! -f "$VENV_PYTHON" ]] && VENV_PYTHON="$VENV_DIR/bin/python3"
-  [[ ! -f "$VENV_PYTHON" ]] && die "Virtual environment was created but has no python binary. Try deleting backend/scraper/.venv and running setup again."
+  [[ ! -f "$VENV_PYTHON" ]] && die "Virtual environment has no python binary. Delete backend/scraper/.venv and re-run setup."
 
-  "$VENV_PYTHON" -m pip install --upgrade pip -q
-  "$VENV_PYTHON" -m pip install -r "$SCRIPT_DIR/backend/scraper/requirements.txt" -q
-  touch "$VENV_DIR/.installed"
+  # Fix pip SSL / truststore bug on fresh macOS Python builds:
+  # pip's vendored certifi may ship without its cacert.pem, causing a
+  # FileNotFoundError when truststore tries to load the cert bundle.
+  # Also fix the runtime certifi used by the scraper (e.g. jobspy / LinkedIn).
+  # Run this unconditionally so it self-heals even on existing venvs.
+  local SYSTEM_CERT="/etc/ssl/cert.pem"
+  if [[ -f "$SYSTEM_CERT" ]]; then
+    export SSL_CERT_FILE="$SYSTEM_CERT"
+    export REQUESTS_CA_BUNDLE="$SYSTEM_CERT"
+
+    # Fix pip's own vendored certifi
+    local PIP_CERTIFI_DIR
+    PIP_CERTIFI_DIR="$(
+      "$VENV_PYTHON" -c \
+        'import pip._vendor.certifi as c, os; print(os.path.dirname(c.__file__))' \
+        2>/dev/null || echo ''
+    )"
+    if [[ -n "$PIP_CERTIFI_DIR" && -d "$PIP_CERTIFI_DIR" && ! -f "$PIP_CERTIFI_DIR/cacert.pem" ]]; then
+      cp "$SYSTEM_CERT" "$PIP_CERTIFI_DIR/cacert.pem"
+    fi
+
+    # Fix the runtime certifi used by requests / jobspy / LinkedIn scraper
+    local RUNTIME_CERTIFI_DIR
+    RUNTIME_CERTIFI_DIR="$(
+      "$VENV_PYTHON" -c \
+        'import certifi, os; print(os.path.dirname(certifi.__file__))' \
+        2>/dev/null || echo ''
+    )"
+    if [[ -n "$RUNTIME_CERTIFI_DIR" && -d "$RUNTIME_CERTIFI_DIR" && ! -f "$RUNTIME_CERTIFI_DIR/cacert.pem" ]]; then
+      cp "$SYSTEM_CERT" "$RUNTIME_CERTIFI_DIR/cacert.pem"
+    fi
+  fi
+
+  if [[ ! -f "$VENV_DIR/.installed" ]]; then
+    "$VENV_PYTHON" -m pip install --upgrade pip --no-cache-dir -q \
+      --trusted-host pypi.org --trusted-host files.pythonhosted.org --trusted-host pypi.python.org
+    "$VENV_PYTHON" -m pip install --no-cache-dir -q \
+      --trusted-host pypi.org --trusted-host files.pythonhosted.org --trusted-host pypi.python.org \
+      -r "$SCRIPT_DIR/backend/scraper/requirements.txt"
+    touch "$VENV_DIR/.installed"
+  fi
   ok "Job scraper dependencies installed!"
 }
 
@@ -361,7 +480,7 @@ LAUNCHER_SCRIPT
   ok "\"JobAssist AI\" created in /Applications!"
 
   # Also add an alias on the Desktop
-  osascript -e "tell application \"Finder\" to make alias file to POSIX file \"$APP\" at POSIX file \"$HOME/Desktop\"" 2>/dev/null && ok "Shortcut added to Desktop!" || true
+  osascript -e "tell application \"Finder\" to make alias file to POSIX file \"$APP\" at POSIX file \"$HOME/Desktop\"" >/dev/null 2>&1 && ok "Shortcut added to Desktop!" || true
 }
 
 print_done() {

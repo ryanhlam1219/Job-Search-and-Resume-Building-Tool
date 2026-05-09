@@ -287,6 +287,7 @@ start_services() {
     info "Starting Ollama server…"
     ollama serve >"$LOG_DIR/ollama.log" 2>&1 &
     echo $! > "$PID_DIR/ollama.pid"
+    disown $!  # detach so it survives terminal closure
     # Wait up to 15s for Ollama to be ready
     for i in $(seq 1 15); do
       curl -s "http://localhost:${OLLAMA_PORT}/" >/dev/null 2>&1 && break
@@ -327,11 +328,16 @@ start_services() {
     success "Python scraper already running"
   elif [[ -n "$VENV_PYTHON" ]]; then
     info "Starting Python scraper on port ${SCRAPER_PORT}…"
+    # Pass the macOS system cert bundle so certifi-backed libraries (e.g. jobspy's
+    # LinkedIn scraper) can validate TLS connections without a missing cacert.pem.
+    SSL_CERT_FILE=/etc/ssl/cert.pem \
+    REQUESTS_CA_BUNDLE=/etc/ssl/cert.pem \
     "$VENV_PYTHON" "$SCRAPER_DIR/app.py" \
       >"$LOG_DIR/scraper.log" 2>&1 &
     echo $! > "$PID_DIR/scraper.pid"
-    # Wait up to 8s for Flask to be ready
-    for i in $(seq 1 8); do
+    disown $!  # detach so it survives terminal closure
+    # Wait up to 20s — Flask can take a few seconds to bind on a cold start
+    for i in $(seq 1 20); do
       curl -s "http://localhost:${SCRAPER_PORT}/health" >/dev/null 2>&1 && break
       sleep 1
     done
@@ -347,6 +353,7 @@ start_services() {
   npm run dev -- --port "$APP_PORT" \
     >"$LOG_DIR/next.log" 2>&1 &
   echo $! > "$PID_DIR/next.pid"
+  disown $!  # detach so it survives terminal closure
 
   # Wait for Next.js to be ready (up to 30s)
   info "Waiting for Next.js to be ready…"
@@ -463,8 +470,11 @@ rm -f "$HEARTBEAT_FILE"
     stop_services
   fi
 
-  # Monitor for idle: shut down after 2 minutes without a heartbeat
+  # Monitor for idle: shut down after 2 minutes without a heartbeat.
+  # We capture our own PID so stop_services skips trying to kill us
+  # (we'll exit naturally after calling it).
   IDLE_SECONDS=120
+  WATCHER_PID=$$
   while true; do
     sleep 30
     if [[ -f "$HEARTBEAT_FILE" ]]; then
@@ -475,9 +485,14 @@ rm -f "$HEARTBEAT_FILE"
       AGE=$((NOW - LAST))
       if [[ $AGE -gt $IDLE_SECONDS ]]; then
         info "No browser activity for ${IDLE_SECONDS}s — shutting down"
+        # Remove our own PID file before calling stop_services so it
+        # doesn’t try to kill this subshell while it’s still running.
+        rm -f "$PID_DIR/watcher.pid"
         stop_services
+        exit 0
       fi
     fi
   done
 ) &
 echo $! > "$PID_DIR/watcher.pid"
+disown $!  # detach so the watcher survives terminal closure
