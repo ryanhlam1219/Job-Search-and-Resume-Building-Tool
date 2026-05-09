@@ -558,6 +558,6 @@ rm -f "$HEARTBEAT_FILE"
       fi
     fi
   done
-) &
+) >> "$LOG_DIR/watcher.log" 2>&1 &
 echo $! > "$PID_DIR/watcher.pid"
 disown $!  # detach so the watcher survives terminal closure
